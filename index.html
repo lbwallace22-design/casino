@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>Casino</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+
+<!-- ═══ CASINO MENU ═══ -->
+<div id="menu-screen" class="screen active">
+  <h1 class="title gold">C A S I N O</h1>
+  <div class="balance-display" id="menu-balance">Balance: $5,000</div>
+  <div class="menu-buttons">
+    <button class="menu-btn blue" onclick="launchGame('blackjack')">BLACKJACK</button>
+    <button class="menu-btn orange" onclick="launchGame('slots')">SLOT MACHINE</button>
+    <button class="menu-btn red" onclick="launchGame('roulette')">ROULETTE</button>
+  </div>
+  <div class="deposit-row">
+    <span class="muted">Balance resets to $5,000 when below $500</span>
+  </div>
+</div>
+
+<!-- ═══ BLACKJACK ═══ -->
+<div id="blackjack-screen" class="screen">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="balance-display" id="bj-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label id="bj-bet-label">Bet/Hand: $</label>
+      <input type="number" id="bj-bet" value="25" min="5" max="100000" step="5">
+      <span id="bj-total-label" class="muted">(Total: $75)</span>
+    </div>
+    <div class="hand-controls">
+      <label>Hands:</label>
+      <input type="number" id="bj-hands" value="3" min="1" max="7" step="1">
+    </div>
+  </div>
+
+  <!-- Options row -->
+  <div class="options-row">
+    <label class="toggle-label">
+      <input type="checkbox" id="bj-show-double" checked>
+      Show double card
+    </label>
+    <div class="radio-group">
+      <label><input type="radio" name="betmode" value="per_hand" checked> Per Hand</label>
+      <label><input type="radio" name="betmode" value="total"> Total</label>
+    </div>
+    <div class="count-display" id="bj-count">RC:+0 TC:+0.0</div>
+  </div>
+
+  <!-- Dealer area -->
+  <div class="table-felt">
+    <div class="dealer-area">
+      <div class="area-label">DEALER</div>
+      <div class="hand-cards" id="dealer-cards"></div>
+      <div class="hand-value" id="dealer-value"></div>
+    </div>
+
+    <div class="table-text">BLACKJACK PAYS 3 TO 2</div>
+
+    <!-- Player hands -->
+    <div class="player-area" id="player-area"></div>
+  </div>
+
+  <!-- Message -->
+  <div class="msg" id="bj-msg">Place your bet and press DEAL</div>
+  <div class="detail" id="bj-detail"></div>
+
+  <!-- Main action buttons -->
+  <div class="btn-row" id="bj-buttons">
+    <button class="btn blue" id="btn-deal" onclick="bjDeal()">DEAL</button>
+    <button class="btn green" id="btn-hit" onclick="bjHit()" disabled>HIT</button>
+    <button class="btn orange" id="btn-stand" onclick="bjStand()" disabled>STAND</button>
+    <button class="btn purple" id="btn-double" onclick="bjDouble()" disabled>DOUBLE</button>
+    <button class="btn red" id="btn-split" onclick="bjSplit()" disabled>SPLIT</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <!-- Insurance popup (hidden) -->
+  <div class="btn-row hidden" id="bj-insurance">
+    <span class="ins-label" id="ins-label">Insurance?</span>
+    <button class="btn teal" onclick="bjInsurance(true)">YES - INSURANCE</button>
+    <button class="btn dark" onclick="bjInsurance(false)">NO THANKS</button>
+  </div>
+
+  <div class="stats-row" id="bj-stats">W:0 L:0 P:0 BJ:0</div>
+</div>
+
+<!-- ═══ SLOT MACHINE ═══ -->
+<div id="slots-screen" class="screen">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="balance-display" id="slot-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label>Bet/Line: $</label>
+      <input type="number" id="slot-bet" value="10" min="1" max="100000" step="5">
+      <span class="muted">Lines: 10</span>
+      <span id="slot-total-label" class="muted">(Total: $100)</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="slot-stats">Spins: 0  |  Wins: 0  |  Won: $0</div>
+
+  <!-- Bonus bar (hidden) -->
+  <div class="slot-bonus-bar hidden" id="slot-bonus-bar"></div>
+
+  <!-- Reel grid -->
+  <div class="slot-machine-felt">
+    <div class="slot-grid" id="slot-grid"></div>
+  </div>
+
+  <!-- Message -->
+  <div class="msg" id="slot-msg">Press SPIN to play!</div>
+  <div class="detail" id="slot-detail"></div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn green" id="btn-spin" onclick="slotSpin()">SPIN</button>
+    <button class="btn red" id="btn-max-bet" onclick="slotMaxSpin()">MAX BET</button>
+    <button class="btn purple" id="btn-buy-bonus" onclick="slotBuyFeature()">BUY BONUS</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <div class="slot-buy-cost" id="slot-buy-cost">Buy Feature cost: $10,000</div>
+
+  <!-- Paytable -->
+  <div class="slot-paytable">
+    5x7:500x  4x7:50x  3x7:10x  |  5xBAR:100x  4xBAR:20x  3xBAR:5x<br>
+    5xDIA:75x  4x:15x  3x:4x  |  5xBEL:50x  4x:10x  3x:3x<br>
+    5xCHR:40x  4x:8x  3x:2x  |  5xLEM/ORG:20x  4x:4x  3x:1x<br>
+    WILD subs all (except BONUS)  |  3+ BONUS anywhere = Free Spins<br>
+    Buy Feature: 100x total bet  |  10 paylines
+  </div>
+</div>
+
+<!-- ═══ ROULETTE ═══ -->
+<div id="roulette-screen" class="screen">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="balance-display" id="roul-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label>Chip: $</label>
+      <input type="number" id="roul-bet" value="25" min="5" max="500" step="5">
+    </div>
+  </div>
+
+  <div class="stats-row" id="roul-stats">Spins: 0  |  W: 0  L: 0</div>
+
+  <!-- Wheel -->
+  <div class="roul-wheel-wrap">
+    <canvas id="roul-wheel"></canvas>
+  </div>
+
+  <!-- Bet board -->
+  <div class="roul-board-wrap" id="roul-board"></div>
+
+  <!-- Bets display -->
+  <div class="stats-row" id="roul-bets-display">No bets placed</div>
+
+  <!-- Message -->
+  <div class="msg" id="roul-msg">Place bets on the board, then SPIN!</div>
+  <div class="detail" id="roul-detail"></div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn green" id="btn-roul-spin" onclick="roulSpin()">SPIN</button>
+    <button class="btn dark" id="btn-roul-clear" onclick="roulClearBets()">CLEAR BETS</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <div class="slot-paytable">
+    Straight: 35:1  |  Dozens/Columns: 2:1  |  Even money: Red/Black, Odd/Even, 1-18/19-36
+  </div>
+</div>
+
+<script src="blackjack.js"></script>
+<script src="slots.js"></script>
+<script src="roulette.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
