@@ -149,14 +149,15 @@ function cardHTML(card, faceUp=true, dealing=false) {
 }
 
 // ─── RENDER ────────────────────────────────────────────────────────
-function renderDealer(hideFirst=false) {
+function renderDealer(hideHole=false) {
   const el = $('dealer-cards');
+  // Card 0 = face up, Card 1 = hole card (face down when hideHole)
   el.innerHTML = dealerHand.map((c, i) =>
-    cardHTML(c, !(hideFirst && i === 0))
+    cardHTML(c, !(hideHole && i === 1))
   ).join('');
   const valEl = $('dealer-value');
-  if (hideFirst && dealerHand.length >= 2) {
-    valEl.textContent = `Showing: ${handValue([dealerHand[1]])}`;
+  if (hideHole && dealerHand.length >= 2) {
+    valEl.textContent = `Showing: ${handValue([dealerHand[0]])}`;
   } else if (dealerHand.length) {
     valEl.textContent = `Value: ${handValue(dealerHand)}`;
   } else {
@@ -230,6 +231,7 @@ function renderHands() {
 }
 
 function setButtonsEnabled(states) {
+  $('btn-bj-max').disabled = !states.deal;
   $('btn-deal').disabled = !states.deal;
   $('btn-hit').disabled = !states.hit;
   $('btn-stand').disabled = !states.stand;
@@ -296,6 +298,18 @@ function checkAutoReset() {
     balance = STARTING_BALANCE;
     updateBalance();
   }
+}
+
+// ─── MAX BET ──────────────────────────────────────────────────────
+function bjMaxBet() {
+  if (gameActive) return;
+  const n = parseInt($('bj-hands').value) || DEFAULT_HANDS;
+  const maxPerHand = Math.floor(balance / n);
+  if (maxPerHand < 5) return;
+  // Round down to nearest 5
+  const bet = Math.floor(maxPerHand / 5) * 5;
+  $('bj-bet').value = bet;
+  updateTotalLabel();
 }
 
 // ─── DEAL ──────────────────────────────────────────────────────────
@@ -373,7 +387,7 @@ function processDealQueue(queue) {
 }
 
 function postDeal() {
-  if (dealerHand[1].rank === 'A') {
+  if (dealerHand[0].rank === 'A') {
     offerInsurance();
     return;
   }
