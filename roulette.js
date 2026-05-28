@@ -251,25 +251,24 @@ function roulSpin() {
   const target = pocketAngle(roulResult);
   // Distance clockwise from start to target
   const cwToTarget = ((target - roulBallStart) % 360 + 360) % 360;
-  const rotations = 4 + Math.random() * 2;
+  const rotations = 4 + Math.floor(Math.random() * 3);
   roulBallTotal = rotations * 360 + cwToTarget;
 
   animateBall(0);
 }
 
 function animateBall(frame) {
-  if (frame <= ROUL_BALL_FRAMES) {
-    const t = frame / ROUL_BALL_FRAMES;
-    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
-    const currentAngle = roulBallStart + eased * roulBallTotal;
+  const t = Math.min(frame / ROUL_BALL_FRAMES, 1);
+  const eased = 1 - Math.pow(1 - t, 2.5); // ease-out (softer than cubic)
+  const currentAngle = roulBallStart + eased * roulBallTotal;
 
+  if (frame < ROUL_BALL_FRAMES) {
     drawWheel(null, currentAngle);
-
     if (t > 0.85) setRoulMsg('Almost there...', 'win');
-
     setTimeout(() => animateBall(frame + 1), ROUL_BALL_DELAY);
   } else {
-    drawWheel(roulResult, pocketAngle(roulResult));
+    // Final frame: highlight pocket, ball stays at computed angle (no snap)
+    drawWheel(roulResult, currentAngle);
     setTimeout(roulResolve, 600);
   }
 }

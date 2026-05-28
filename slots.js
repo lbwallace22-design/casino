@@ -10,16 +10,14 @@ const GRID_ROWS = 3;
 const SLOT_SPIN_FRAMES = 20;
 const SLOT_SPIN_DELAY = 60;
 const SLOT_REEL_STOP_DELAY = 350;
-const BUY_MULTIPLIER = 100;
+const BUY_HW_MULTIPLIER = 100;
+const BUY_LADDER_MULTIPLIER = 50;
 
-const SYMBOLS = ["7","BAR","CHR","BEL","DIA","LEM","ORG","WLD","BNS"];
+const SYMBOLS = ["7","BAR","CHR","BEL","DIA","LEM","ORG","WLD","BNS","CRN"];
 
 // Weighted symbol pools
 const REEL_WEIGHTS = {
-  "7":2,"BAR":4,"CHR":6,"BEL":6,"DIA":5,"LEM":8,"ORG":8,"WLD":2,"BNS":3
-};
-const BONUS_REEL_WEIGHTS = {
-  "7":3,"BAR":5,"CHR":6,"BEL":6,"DIA":5,"LEM":7,"ORG":7,"WLD":5,"BNS":4
+  "7":2,"BAR":4,"CHR":6,"BEL":6,"DIA":5,"LEM":7,"ORG":7,"WLD":2,"BNS":6,"CRN":2
 };
 
 function buildPool(weights) {
@@ -29,7 +27,6 @@ function buildPool(weights) {
   return pool;
 }
 const REEL_POOL = buildPool(REEL_WEIGHTS);
-const BONUS_REEL_POOL = buildPool(BONUS_REEL_WEIGHTS);
 
 // Payouts: symbol → {matchCount: multiplier on bet-per-line}
 const PAYOUTS = {
@@ -42,11 +39,8 @@ const PAYOUTS = {
   "ORG": {3:1,  4:4,  5:20},
 };
 
-// Scatter pays — multiplier on TOTAL bet
-const SCATTER_PAYS = {3:5, 4:20, 5:100};
-
-// Free-spin tiers: bonus_count → [num_spins, multiplier]
-const FREE_SPIN_TIERS = {3:[12,3], 4:[15,5], 5:[20,10]};
+// Scatter pays for <6 BNS (consolation)
+const SCATTER_PAYS = {3:2, 4:5, 5:15};
 
 // 10 paylines (row, col) left→right
 const PAYLINES = [
@@ -77,21 +71,69 @@ const SYM_DISPLAY = {
   "LEM": { emoji:"🍋",  label:"",      bg:"#2a2a15", border:"#ddee22", color:"#ddee22" },
   "ORG": { emoji:"🍊",  label:"",      bg:"#2a2015", border:"#ff8833", color:"#ff8833" },
   "WLD": { emoji:"⭐",  label:"WILD",  bg:"#2a1a00", border:"#ff6600", color:"#ff6600" },
-  "BNS": { emoji:"💰",  label:"BONUS", bg:"#2a2200", border:"#f0c040", color:"#f0c040" },
+  "BNS": { emoji:"💰",  label:"COIN",  bg:"#2a2200", border:"#f0c040", color:"#f0c040" },
+  "CRN": { emoji:"👑",  label:"CROWN", bg:"#2a1a2a", border:"#ff44ff", color:"#ff44ff" },
 };
+
+// ─── HOLD & WIN CONFIG ────────────────────────────────────────────
+const HOLD_WIN_TRIGGER = 6;
+const HOLD_WIN_SPINS = 3;
+const HOLD_WIN_COIN_CHANCE = 0.22;
+const HOLD_WIN_ANIM_FRAMES = 12;
+const HOLD_WIN_GRAND_BONUS = 500;
+
+const COIN_VALUE_POOL = [
+  {value: 1, weight: 25},
+  {value: 2, weight: 20},
+  {value: 3, weight: 15},
+  {value: 5, weight: 12},
+  {value: 10, weight: 8},
+  {value: 25, weight: 5},
+  {value: 50, weight: 3},
+  {value: 100, weight: 2},
+  {value: 250, weight: 1},
+];
+const COIN_VALUE_TOTAL_WEIGHT = COIN_VALUE_POOL.reduce((s, c) => s + c.weight, 0);
+
+function randomCoinValue() {
+  let r = Math.random() * COIN_VALUE_TOTAL_WEIGHT;
+  for (const c of COIN_VALUE_POOL) {
+    r -= c.weight;
+    if (r <= 0) return c.value;
+  }
+  return 1;
+}
+
+// ─── MULTIPLIER LADDER CONFIG ─────────────────────────────────────
+const LADDER_LEVELS = [
+  { mult: 2,    safe: 3 },
+  { mult: 5,    safe: 2 },
+  { mult: 10,   safe: 2 },
+  { mult: 25,   safe: 2 },
+  { mult: 50,   safe: 1 },
+  { mult: 100,  safe: 1 },
+  { mult: 250,  safe: 1 },
+  { mult: 500,  safe: 1 },
+  { mult: 1000, safe: 0 },
+];
+const CROWN_SCATTER_PAYS = {3:3, 4:10, 5:50};
 
 // ─── STATE ─────────────────────────────────────────────────────────
 let slotGrid = Array.from({length: GRID_ROWS}, () => Array(GRID_COLS).fill(""));
 let slotFinalGrid = null;
 let slotSpinning = false;
 
-// Bonus state
-let bonusActive = false;
-let bonusSpinsLeft = 0;
-let bonusTotalSpins = 0;
-let bonusMultiplier = 1;
-let bonusWinnings = 0;
-let bonusBet = 0;
+// Hold & Win state
+let holdWinActive = false;
+let holdWinSpinsLeft = 0;
+let holdWinBet = 0;
+let holdWinCoins = null;
+
+// Multiplier Ladder state
+let ladderActive = false;
+let ladderLevel = 0;
+let ladderBet = 0;
+let ladderBasePay = 0;
 
 let slotStats = { spins:0, wins:0, totalWon:0 };
 
@@ -100,7 +142,6 @@ function slotEl(id) { return document.getElementById(id); }
 
 function updateSlotBalance() {
   slotEl('slot-balance').textContent = `Balance: $${balance.toLocaleString()}`;
-  // Also update menu balance
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
 }
 
@@ -121,14 +162,14 @@ function updateSlotStats() {
 
 function updateSlotTotalLabel() {
   const bet = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
-  slotEl('slot-total-label').textContent = `(Total: $${(bet * NUM_LINES).toLocaleString()})`;
+  const total = bet * NUM_LINES;
+  slotEl('slot-total-label').textContent = `(Total: $${total.toLocaleString()})`;
   slotEl('slot-buy-cost').textContent =
-    `Buy Feature cost: $${(bet * NUM_LINES * BUY_MULTIPLIER).toLocaleString()}`;
+    `Buy Hold&Win: $${(total * BUY_HW_MULTIPLIER).toLocaleString()}  |  Buy Ladder: $${(total * BUY_LADDER_MULTIPLIER).toLocaleString()}`;
 }
 
-function randomSymbol(useBonus) {
-  const pool = useBonus ? BONUS_REEL_POOL : REEL_POOL;
-  return pool[Math.floor(Math.random() * pool.length)];
+function randomSymbol() {
+  return REEL_POOL[Math.floor(Math.random() * REEL_POOL.length)];
 }
 
 // ─── RENDER GRID ───────────────────────────────────────────────────
@@ -165,11 +206,51 @@ function renderSlotGrid(highlightCells) {
   }
 }
 
+function renderHoldWinGrid(animating) {
+  const container = slotEl('slot-grid');
+  container.innerHTML = '';
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const cell = document.createElement('div');
+      cell.className = 'slot-cell';
+
+      const coinVal = holdWinCoins[row][col];
+
+      if (coinVal !== null) {
+        cell.style.background = '#2a2200';
+        cell.style.borderColor = '#f0c040';
+        cell.style.borderWidth = '2px';
+        cell.classList.add('hw-coin');
+        cell.innerHTML = `<span class="slot-emoji">💰</span><span class="coin-value">${coinVal}x</span>`;
+      } else if (animating) {
+        const sym = slotGrid[row][col];
+        if (sym && SYM_DISPLAY[sym]) {
+          const d = SYM_DISPLAY[sym];
+          cell.style.background = '#0f1a30';
+          cell.style.borderColor = '#555';
+          if (d.emoji && !d.label) {
+            cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
+          } else if (d.emoji) {
+            cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
+          } else {
+            cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
+          }
+        }
+      } else {
+        cell.style.background = '#080815';
+        cell.style.borderColor = '#222';
+      }
+      container.appendChild(cell);
+    }
+  }
+}
+
 // ─── BUTTONS ───────────────────────────────────────────────────────
 function setSlotButtons(enabled) {
   slotEl('btn-spin').disabled = !enabled;
   slotEl('btn-max-bet').disabled = !enabled;
-  slotEl('btn-buy-bonus').disabled = !enabled;
+  slotEl('btn-buy-holdwin').disabled = !enabled;
+  slotEl('btn-buy-ladder').disabled = !enabled;
   slotEl('slot-bet').disabled = !enabled;
 }
 
@@ -178,12 +259,11 @@ function evalPayline(syms) {
   let base = null;
   for (const s of syms) {
     if (s === 'WLD') continue;
-    if (s === 'BNS') return [0, null, 0];
+    if (s === 'BNS' || s === 'CRN') return [0, null, 0];
     base = s;
     break;
   }
   if (base === null) {
-    // All WILDs → pay as sevens
     return [5, '7', PAYOUTS['7'][5]];
   }
   let count = 0;
@@ -199,44 +279,33 @@ function evalPayline(syms) {
 }
 
 // ─── SPIN ──────────────────────────────────────────────────────────
-function slotSpin(isBonusSpin = false) {
-  if (slotSpinning) return;
+function slotSpin() {
+  if (slotSpinning || holdWinActive || ladderActive) return;
 
-  let betPerLine;
-  if (isBonusSpin) {
-    betPerLine = bonusBet;
-  } else {
-    betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
-    const totalBet = betPerLine * NUM_LINES;
-    if (totalBet > balance) {
-      setSlotMsg(`Need $${totalBet.toLocaleString()}!`, 'lose');
-      return;
-    }
-    balance -= totalBet;
-    updateSlotBalance();
+  const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const totalBet = betPerLine * NUM_LINES;
+  if (totalBet > balance) {
+    setSlotMsg(`Need $${totalBet.toLocaleString()}!`, 'lose');
+    return;
   }
+  balance -= totalBet;
+  updateSlotBalance();
 
   slotSpinning = true;
   setSlotButtons(false);
   setSlotDetail('');
+  slotStats.spins++;
+  setSlotMsg('Spinning...');
 
-  if (!isBonusSpin) {
-    slotStats.spins++;
-    setSlotMsg('Spinning...');
-  } else {
-    const num = bonusTotalSpins - bonusSpinsLeft;
-    setSlotMsg(`FREE SPIN ${num}/${bonusTotalSpins} (x${bonusMultiplier})`, 'win');
-  }
-
-  // Pre-generate final grid
   slotFinalGrid = Array.from({length: GRID_ROWS}, () =>
-    Array.from({length: GRID_COLS}, () => randomSymbol(bonusActive))
+    Array.from({length: GRID_COLS}, () => randomSymbol())
   );
 
-  animateSlotSpin(0, betPerLine, isBonusSpin);
+  animateSlotSpin(0, betPerLine);
 }
 
 function slotMaxSpin() {
+  if (holdWinActive || ladderActive) return;
   const cap = Math.min(100000, Math.floor(balance / NUM_LINES));
   if (cap < 1) {
     setSlotMsg('Not enough balance!', 'lose');
@@ -247,22 +316,55 @@ function slotMaxSpin() {
   slotSpin();
 }
 
-function slotBuyFeature() {
-  if (slotSpinning || bonusActive) return;
+// ─── BUY FEATURES ──────────────────────────────────────────────────
+function slotBuyHoldWin() {
+  if (slotSpinning || holdWinActive || ladderActive) return;
   const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
-  const cost = betPerLine * NUM_LINES * BUY_MULTIPLIER;
+  const cost = betPerLine * NUM_LINES * BUY_HW_MULTIPLIER;
   if (cost > balance) {
     setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
     return;
   }
   balance -= cost;
   updateSlotBalance();
-  const [spins, mult] = FREE_SPIN_TIERS[3];
-  startBonus(spins, mult, betPerLine);
+
+  // Place 6 random coins on the grid
+  const positions = [];
+  for (let r = 0; r < GRID_ROWS; r++)
+    for (let c = 0; c < GRID_COLS; c++)
+      positions.push([r, c]);
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+  const coinPositions = positions.slice(0, HOLD_WIN_TRIGGER);
+
+  // Fill grid with BNS at coin positions, random elsewhere
+  for (let r = 0; r < GRID_ROWS; r++)
+    for (let c = 0; c < GRID_COLS; c++)
+      slotGrid[r][c] = randomSymbol();
+  for (const [r, c] of coinPositions)
+    slotGrid[r][c] = 'BNS';
+
+  renderSlotGrid();
+  setTimeout(() => startHoldWin(coinPositions, betPerLine), 800);
+}
+
+function slotBuyLadder() {
+  if (slotSpinning || holdWinActive || ladderActive) return;
+  const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const cost = betPerLine * NUM_LINES * BUY_LADDER_MULTIPLIER;
+  if (cost > balance) {
+    setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
+    return;
+  }
+  balance -= cost;
+  updateSlotBalance();
+  startLadder(betPerLine);
 }
 
 // ─── ANIMATION ─────────────────────────────────────────────────────
-function animateSlotSpin(frame, betPerLine, isBonusSpin) {
+function animateSlotSpin(frame, betPerLine) {
   const totalAnim = SLOT_SPIN_FRAMES + GRID_COLS;
 
   if (frame < totalAnim) {
@@ -272,7 +374,7 @@ function animateSlotSpin(frame, betPerLine, isBonusSpin) {
         if (col < locked) {
           slotGrid[row][col] = slotFinalGrid[row][col];
         } else {
-          slotGrid[row][col] = randomSymbol(bonusActive);
+          slotGrid[row][col] = randomSymbol();
         }
       }
     }
@@ -285,18 +387,17 @@ function animateSlotSpin(frame, betPerLine, isBonusSpin) {
     } else {
       delay = SLOT_REEL_STOP_DELAY;
     }
-    setTimeout(() => animateSlotSpin(frame + 1, betPerLine, isBonusSpin), delay);
+    setTimeout(() => animateSlotSpin(frame + 1, betPerLine), delay);
   } else {
-    // Final grid
     for (let row = 0; row < GRID_ROWS; row++)
       for (let col = 0; col < GRID_COLS; col++)
         slotGrid[row][col] = slotFinalGrid[row][col];
-    resolveSlot(betPerLine, isBonusSpin);
+    resolveSlot(betPerLine);
   }
 }
 
 // ─── RESOLVE ───────────────────────────────────────────────────────
-function resolveSlot(betPerLine, isBonusSpin) {
+function resolveSlot(betPerLine) {
   let totalWin = 0;
   const details = [];
   const winningCells = new Set();
@@ -307,80 +408,79 @@ function resolveSlot(betPerLine, isBonusSpin) {
     const syms = line.map(([r,c]) => slotGrid[r][c]);
     const [cnt, sym, mult] = evalPayline(syms);
     if (mult > 0) {
-      let payout = mult * betPerLine;
-      if (isBonusSpin) payout *= bonusMultiplier;
+      const payout = mult * betPerLine;
       totalWin += payout;
-      const tag = isBonusSpin ? ` x${bonusMultiplier}` : '';
-      details.push(`L${li+1}:${cnt}x${sym}+$${payout.toLocaleString()}${tag}`);
+      details.push(`L${li+1}:${cnt}x${sym}+$${payout.toLocaleString()}`);
       for (let idx = 0; idx < cnt; idx++) {
         winningCells.add(`${line[idx][0]},${line[idx][1]}`);
       }
     }
   }
 
-  // Scatter (BONUS) count
-  const bonusCells = [];
+  // BNS (coin) scatter count
+  const bnsCells = [];
   for (let r = 0; r < GRID_ROWS; r++)
     for (let c = 0; c < GRID_COLS; c++)
-      if (slotGrid[r][c] === 'BNS') bonusCells.push([r,c]);
-  const bonusCount = bonusCells.length;
+      if (slotGrid[r][c] === 'BNS') bnsCells.push([r,c]);
+  const bnsCount = bnsCells.length;
 
-  if (bonusCount >= 3) {
-    const scMult = SCATTER_PAYS[Math.min(bonusCount, 5)] || SCATTER_PAYS[5];
-    let scatterPay = scMult * betPerLine * NUM_LINES;
-    if (isBonusSpin) scatterPay *= bonusMultiplier;
+  // Small scatter pay for 3-5 BNS (consolation, no bonus trigger)
+  if (bnsCount >= 3 && bnsCount < HOLD_WIN_TRIGGER) {
+    const scMult = SCATTER_PAYS[Math.min(bnsCount, 5)] || SCATTER_PAYS[5];
+    const scatterPay = scMult * betPerLine * NUM_LINES;
     totalWin += scatterPay;
-    details.push(`SCATTER ${bonusCount}x +$${scatterPay.toLocaleString()}`);
-    for (const [r,c] of bonusCells) winningCells.add(`${r},${c}`);
+    details.push(`SCATTER ${bnsCount}x +$${scatterPay.toLocaleString()}`);
+    for (const [r,c] of bnsCells) winningCells.add(`${r},${c}`);
+  }
+
+  // Crown scatter count
+  const crownCells = [];
+  for (let r = 0; r < GRID_ROWS; r++)
+    for (let c = 0; c < GRID_COLS; c++)
+      if (slotGrid[r][c] === 'CRN') crownCells.push([r,c]);
+  const crownCount = crownCells.length;
+
+  if (crownCount >= 3) {
+    const cMult = CROWN_SCATTER_PAYS[Math.min(crownCount, 5)] || CROWN_SCATTER_PAYS[5];
+    const crownPay = cMult * betPerLine * NUM_LINES;
+    totalWin += crownPay;
+    details.push(`👑 CROWN ${crownCount}x +$${crownPay.toLocaleString()}`);
+    for (const [r,c] of crownCells) winningCells.add(`${r},${c}`);
   }
 
   renderSlotGrid(winningCells.size > 0 ? winningCells : null);
 
-  if (isBonusSpin) {
-    bonusWinnings += totalWin;
-    slotEl('slot-bonus-bar').textContent =
-      `FREE SPINS — ${bonusSpinsLeft} left  |  x${bonusMultiplier}  |  Won: $${bonusWinnings.toLocaleString()}`;
-  } else {
-    balance += totalWin;
-    updateSlotBalance();
-  }
+  balance += totalWin;
+  updateSlotBalance();
 
   if (totalWin > 0) {
     slotStats.wins++;
     slotStats.totalWon += totalWin;
     setSlotMsg(`WIN! +$${totalWin.toLocaleString()}`, 'win');
   } else {
-    const extra = isBonusSpin ? ` — ${bonusSpinsLeft} left` : ' — try again!';
-    setSlotMsg(`No win${extra}`);
+    setSlotMsg('No win — try again!');
   }
 
   setSlotDetail(details.slice(0, 5).join('  |  '));
   updateSlotStats();
   slotSpinning = false;
 
-  // Bonus trigger / retrigger
-  if (bonusCount >= 3 && !isBonusSpin) {
-    const tier = Math.min(bonusCount, 5);
-    const [spins, mult] = FREE_SPIN_TIERS[tier];
-    setTimeout(() => startBonus(spins, mult, betPerLine), 1500);
+  // ── Bonus triggers ──
+  let pendingLadder = null;
+  if (crownCount >= 3) {
+    pendingLadder = { betPerLine };
+  }
+
+  if (bnsCount >= HOLD_WIN_TRIGGER) {
+    for (const [r,c] of bnsCells) winningCells.add(`${r},${c}`);
+    renderSlotGrid(winningCells);
+    if (pendingLadder) window._pendingLadder = pendingLadder;
+    setTimeout(() => startHoldWin(bnsCells, betPerLine), 1500);
     return;
   }
 
-  if (bonusCount >= 3 && isBonusSpin) {
-    const retriggerSpins = {3:6, 4:8, 5:10};
-    const extraSpins = retriggerSpins[Math.min(bonusCount, 5)] || 6;
-    bonusSpinsLeft += extraSpins;
-    bonusTotalSpins += extraSpins;
-    setSlotMsg(`RETRIGGER! +${extraSpins} free spins!`, 'win');
-  }
-
-  // Continue or end bonus
-  if (isBonusSpin) {
-    if (bonusSpinsLeft > 0) {
-      setTimeout(runBonusSpin, 1200);
-    } else {
-      setTimeout(endBonus, 1500);
-    }
+  if (pendingLadder) {
+    setTimeout(() => startLadder(betPerLine), 1500);
     return;
   }
 
@@ -389,44 +489,325 @@ function resolveSlot(betPerLine, isBonusSpin) {
     checkAutoReset();
     setSlotMsg('Balance reset! Press SPIN to play.', 'win');
     updateSlotBalance();
-    setSlotButtons(true);
+  }
+  setSlotButtons(true);
+}
+
+// ─── HOLD & WIN BONUS ──────────────────────────────────────────────
+function startHoldWin(coinPositions, betPerLine) {
+  holdWinActive = true;
+  holdWinSpinsLeft = HOLD_WIN_SPINS;
+  holdWinBet = betPerLine;
+  holdWinCoins = Array.from({length: GRID_ROWS}, () => Array(GRID_COLS).fill(null));
+
+  for (const [r, c] of coinPositions) {
+    holdWinCoins[r][c] = randomCoinValue();
+  }
+
+  setSlotButtons(false);
+  const bar = slotEl('slot-bonus-bar');
+  bar.classList.remove('hidden');
+  updateHoldWinBar();
+
+  renderHoldWinGrid(false);
+  setSlotMsg(`💰 HOLD & WIN! ${coinPositions.length} coins locked!`, 'win');
+
+  setTimeout(runHoldWinSpin, 2000);
+}
+
+function updateHoldWinBar() {
+  const totalVal = sumHoldWinCoins();
+  const totalPay = totalVal * holdWinBet * NUM_LINES;
+  slotEl('slot-bonus-bar').textContent =
+    `HOLD & WIN — ${holdWinSpinsLeft} spin${holdWinSpinsLeft !== 1 ? 's' : ''} left  |  Total: $${totalPay.toLocaleString()}`;
+}
+
+function sumHoldWinCoins() {
+  let total = 0;
+  for (let r = 0; r < GRID_ROWS; r++)
+    for (let c = 0; c < GRID_COLS; c++)
+      if (holdWinCoins[r][c] !== null) total += holdWinCoins[r][c];
+  return total;
+}
+
+function countHoldWinCoins() {
+  let count = 0;
+  for (let r = 0; r < GRID_ROWS; r++)
+    for (let c = 0; c < GRID_COLS; c++)
+      if (holdWinCoins[r][c] !== null) count++;
+  return count;
+}
+
+function runHoldWinSpin() {
+  if (holdWinSpinsLeft <= 0) { endHoldWin(); return; }
+  holdWinSpinsLeft--;
+  setSlotMsg(`Spinning... ${holdWinSpinsLeft + 1} → ${holdWinSpinsLeft} spins left`);
+  animateHoldWinSpin(0);
+}
+
+function animateHoldWinSpin(frame) {
+  if (frame < HOLD_WIN_ANIM_FRAMES) {
+    for (let r = 0; r < GRID_ROWS; r++)
+      for (let c = 0; c < GRID_COLS; c++)
+        if (holdWinCoins[r][c] === null)
+          slotGrid[r][c] = randomSymbol();
+    renderHoldWinGrid(true);
+    const delay = 50 + frame * 15;
+    setTimeout(() => animateHoldWinSpin(frame + 1), delay);
   } else {
-    setSlotButtons(true);
+    resolveHoldWinSpin();
   }
 }
 
-// ─── BONUS ROUND ───────────────────────────────────────────────────
-function startBonus(numSpins, multiplier, betPerLine) {
-  bonusActive = true;
-  bonusSpinsLeft = numSpins;
-  bonusTotalSpins = numSpins;
-  bonusMultiplier = multiplier;
-  bonusWinnings = 0;
-  bonusBet = betPerLine;
+function resolveHoldWinSpin() {
+  let newCoins = 0;
 
-  const bar = slotEl('slot-bonus-bar');
-  bar.textContent = `FREE SPINS — ${numSpins} spins  |  x${multiplier}  |  Won: $0`;
-  bar.classList.remove('hidden');
+  for (let r = 0; r < GRID_ROWS; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      if (holdWinCoins[r][c] === null) {
+        if (Math.random() < HOLD_WIN_COIN_CHANCE) {
+          holdWinCoins[r][c] = randomCoinValue();
+          newCoins++;
+        }
+      }
+    }
+  }
 
-  setSlotMsg(`BONUS! ${numSpins} FREE SPINS at x${multiplier}!`, 'win');
-  setTimeout(runBonusSpin, 2000);
+  renderHoldWinGrid(false);
+
+  if (newCoins > 0) {
+    holdWinSpinsLeft = HOLD_WIN_SPINS;
+    setSlotMsg(`+${newCoins} new coin${newCoins > 1 ? 's' : ''}! Spins reset to ${HOLD_WIN_SPINS}!`, 'win');
+  } else {
+    if (holdWinSpinsLeft > 0) {
+      setSlotMsg(`No new coins — ${holdWinSpinsLeft} spin${holdWinSpinsLeft !== 1 ? 's' : ''} left`);
+    } else {
+      setSlotMsg('No new coins — collecting!');
+    }
+  }
+
+  updateHoldWinBar();
+
+  // Check if grid is full → GRAND BONUS
+  if (countHoldWinCoins() >= GRID_ROWS * GRID_COLS) {
+    setSlotMsg('🏆 FULL GRID! GRAND BONUS!', 'win');
+    setTimeout(endHoldWin, 2500);
+    return;
+  }
+
+  if (holdWinSpinsLeft > 0) {
+    setTimeout(runHoldWinSpin, 1200);
+  } else {
+    setTimeout(endHoldWin, 1500);
+  }
 }
 
-function runBonusSpin() {
-  if (bonusSpinsLeft <= 0) { endBonus(); return; }
-  bonusSpinsLeft--;
-  slotSpin(true);
-}
-
-function endBonus() {
-  bonusActive = false;
+function endHoldWin() {
+  holdWinActive = false;
   slotEl('slot-bonus-bar').classList.add('hidden');
 
-  balance += bonusWinnings;
-  updateSlotBalance();
+  let totalMult = sumHoldWinCoins();
+  const isFull = countHoldWinCoins() >= GRID_ROWS * GRID_COLS;
+  if (isFull) totalMult += HOLD_WIN_GRAND_BONUS;
 
-  setSlotMsg(`BONUS COMPLETE! Won $${bonusWinnings.toLocaleString()}!`, 'win');
-  slotSpinning = false;
+  const payout = totalMult * holdWinBet * NUM_LINES;
+
+  balance += payout;
+  slotStats.wins++;
+  slotStats.totalWon += payout;
+  updateSlotBalance();
+  updateSlotStats();
+
+  const grandText = isFull ? ' + GRAND BONUS!' : '';
+  setSlotMsg(`💰 HOLD & WIN: +$${payout.toLocaleString()}${grandText}`, 'win');
+
+  // Restore normal grid display
+  renderSlotGrid();
+
+  // Check for pending ladder
+  if (window._pendingLadder) {
+    const { betPerLine } = window._pendingLadder;
+    window._pendingLadder = null;
+    setTimeout(() => startLadder(betPerLine), 2000);
+    return;
+  }
+
+  if (balance < NUM_LINES) {
+    checkAutoReset();
+    setSlotMsg('Balance reset! Press SPIN to play.', 'win');
+    updateSlotBalance();
+  }
+  setSlotButtons(true);
+}
+
+// ─── MULTIPLIER LADDER BONUS ───────────────────────────────────────
+function startLadder(betPerLine) {
+  ladderActive = true;
+  ladderLevel = 0;
+  ladderBet = betPerLine;
+  ladderBasePay = betPerLine * NUM_LINES;
+
+  setSlotButtons(false);
+  showLadderOverlay();
+  setSlotMsg('👑 MULTIPLIER LADDER! Pick a tile to climb!', 'win');
+}
+
+function showLadderOverlay() {
+  let overlay = document.getElementById('ladder-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'ladder-overlay';
+    document.getElementById('slots-screen').appendChild(overlay);
+  }
+  overlay.classList.remove('hidden');
+  renderLadder();
+}
+
+function renderLadder() {
+  const overlay = document.getElementById('ladder-overlay');
+  const level = LADDER_LEVELS[ladderLevel];
+
+  let html = '<div class="ladder-container">';
+  html += '<div class="ladder-title">👑 MULTIPLIER LADDER 👑</div>';
+
+  html += '<div class="ladder-rungs">';
+  for (let i = LADDER_LEVELS.length - 1; i >= 0; i--) {
+    const lvl = LADDER_LEVELS[i];
+    const isCurrent = i === ladderLevel;
+    const isPast = i < ladderLevel;
+    const cls = isCurrent ? 'ladder-rung current' : isPast ? 'ladder-rung past' : 'ladder-rung';
+    const pay = (lvl.mult * ladderBasePay);
+    html += `<div class="${cls}">
+      <span class="rung-mult">${lvl.mult}x</span>
+      <span class="rung-pay">$${pay.toLocaleString()}</span>
+      ${isCurrent ? '<span class="rung-arrow">◄</span>' : ''}
+    </div>`;
+  }
+  html += '</div>';
+
+  if (ladderLevel > 0) {
+    const prevMult = LADDER_LEVELS[ladderLevel - 1].mult;
+    const collectPay = prevMult * ladderBasePay;
+    html += `<div class="ladder-collect-info">Collect if wrong: $${collectPay.toLocaleString()} (${prevMult}x)</div>`;
+  }
+
+  if (ladderLevel >= LADDER_LEVELS.length - 1) {
+    const topPay = LADDER_LEVELS[LADDER_LEVELS.length - 1].mult * ladderBasePay;
+    html += `<div class="ladder-msg gold">🏆 MAX LEVEL! Collecting $${topPay.toLocaleString()}!</div>`;
+    html += '</div>';
+    overlay.innerHTML = html;
+    setTimeout(endLadder, 2500);
+    return;
+  }
+
+  html += `<div class="ladder-msg">Pick a tile to try for ${level.mult}x!</div>`;
+  html += '<div class="ladder-tiles">';
+
+  const safeCount = level.safe;
+  const tiles = [];
+  for (let i = 0; i < 3; i++) tiles.push(i < safeCount ? 'UP' : 'COLLECT');
+  for (let i = tiles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+  }
+
+  window._ladderTiles = tiles;
+
+  for (let i = 0; i < 3; i++) {
+    html += `<button class="ladder-tile" onclick="pickLadderTile(${i})">
+      <span class="tile-question">?</span>
+    </button>`;
+  }
+  html += '</div>';
+
+  if (ladderLevel > 0) {
+    const collectPay = LADDER_LEVELS[ladderLevel - 1].mult * ladderBasePay;
+    html += `<button class="btn green ladder-collect-btn" onclick="collectLadder()">
+      COLLECT $${collectPay.toLocaleString()}
+    </button>`;
+  }
+
+  html += '</div>';
+  overlay.innerHTML = html;
+}
+
+function pickLadderTile(index) {
+  const tiles = window._ladderTiles;
+  if (!tiles || !ladderActive) return;
+
+  const result = tiles[index];
+  const tileButtons = document.querySelectorAll('.ladder-tile');
+
+  for (let i = 0; i < 3; i++) {
+    const btn = tileButtons[i];
+    btn.onclick = null;
+    btn.style.cursor = 'default';
+    if (tiles[i] === 'UP') {
+      btn.innerHTML = '<span class="tile-revealed up">⬆️</span>';
+      btn.classList.add('tile-safe');
+    } else {
+      btn.innerHTML = '<span class="tile-revealed down">💀</span>';
+      btn.classList.add('tile-danger');
+    }
+    if (i === index) btn.classList.add('tile-picked');
+  }
+
+  const collectBtn = document.querySelector('.ladder-collect-btn');
+  if (collectBtn) collectBtn.disabled = true;
+
+  if (result === 'UP') {
+    ladderLevel++;
+    const newMult = LADDER_LEVELS[ladderLevel].mult;
+    const newPay = newMult * ladderBasePay;
+    setSlotMsg(`⬆️ CLIMBED to ${newMult}x — $${newPay.toLocaleString()}!`, 'win');
+    setTimeout(renderLadder, 1500);
+  } else {
+    if (ladderLevel > 0) {
+      const prevMult = LADDER_LEVELS[ladderLevel - 1].mult;
+      const pay = prevMult * ladderBasePay;
+      setSlotMsg(`💀 Stopped! Collecting ${prevMult}x — $${pay.toLocaleString()}`, 'lose');
+      ladderLevel = ladderLevel - 1;
+    } else {
+      setSlotMsg(`💀 Stopped at the bottom! No bonus.`, 'lose');
+      ladderLevel = -1;
+    }
+    setTimeout(endLadder, 2000);
+  }
+}
+
+function collectLadder() {
+  if (!ladderActive || ladderLevel <= 0) return;
+  ladderLevel = ladderLevel - 1;
+  const mult = LADDER_LEVELS[ladderLevel].mult;
+  const pay = mult * ladderBasePay;
+  setSlotMsg(`Collected ${mult}x — $${pay.toLocaleString()}!`, 'win');
+  setTimeout(endLadder, 1500);
+}
+
+function endLadder() {
+  ladderActive = false;
+  const overlay = document.getElementById('ladder-overlay');
+  if (overlay) overlay.classList.add('hidden');
+
+  let payout = 0;
+  if (ladderLevel >= 0 && ladderLevel < LADDER_LEVELS.length) {
+    payout = LADDER_LEVELS[ladderLevel].mult * ladderBasePay;
+  }
+
+  if (payout > 0) {
+    balance += payout;
+    slotStats.wins++;
+    slotStats.totalWon += payout;
+    updateSlotBalance();
+    updateSlotStats();
+    setSlotMsg(`👑 LADDER BONUS: +$${payout.toLocaleString()}!`, 'win');
+  }
+
+  // Check for pending hold & win (shouldn't happen but just in case)
+  if (window._pendingFreeSpins) {
+    window._pendingFreeSpins = null;
+  }
+
   if (balance < NUM_LINES) {
     checkAutoReset();
     setSlotMsg('Balance reset! Press SPIN to play.', 'win');

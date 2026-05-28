@@ -264,6 +264,156 @@ body {
   line-height: 1.5;
 }
 
+/* ═══ HOLD & WIN ═══ */
+.hw-coin {
+  animation: coin-glow 1.5s ease-in-out infinite;
+}
+@keyframes coin-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(240, 192, 64, 0.3); }
+  50% { box-shadow: 0 0 14px rgba(240, 192, 64, 0.6); }
+}
+.coin-value {
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: #f0c040;
+  margin-top: 1px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+
+/* ═══ MULTIPLIER LADDER ═══ */
+#ladder-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 30, 0.95);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+#ladder-overlay.hidden { display: none !important; }
+
+.ladder-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 380px;
+  width: 100%;
+}
+.ladder-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #ff44ff;
+  text-align: center;
+  text-shadow: 0 0 20px rgba(255, 68, 255, 0.5);
+}
+.ladder-rungs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+.ladder-rung {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #1a1a3a;
+  border: 1px solid #333;
+  font-size: 0.85rem;
+  color: #888;
+  transition: all 0.3s;
+}
+.ladder-rung.current {
+  background: linear-gradient(90deg, #3a1a5a, #5a1a8a);
+  border-color: #ff44ff;
+  color: #fff;
+  font-weight: bold;
+  box-shadow: 0 0 15px rgba(255, 68, 255, 0.3);
+}
+.ladder-rung.past {
+  background: #1a3a1a;
+  border-color: #44ff44;
+  color: #44ff44;
+}
+.rung-mult {
+  font-weight: bold;
+  min-width: 50px;
+}
+.rung-pay { font-size: 0.8rem; }
+.rung-arrow {
+  color: #ff44ff;
+  font-weight: bold;
+  animation: pulse-arrow 0.8s ease-in-out infinite;
+}
+@keyframes pulse-arrow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.ladder-collect-info {
+  font-size: 0.8rem;
+  color: #44ff44;
+  text-align: center;
+}
+.ladder-msg {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #eee;
+  text-align: center;
+}
+.ladder-msg.gold { color: #f0c040; }
+
+.ladder-tiles {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.ladder-tile {
+  width: 80px;
+  height: 90px;
+  border-radius: 10px;
+  border: 2px solid #ff44ff;
+  background: linear-gradient(135deg, #2a1a4a, #1a0a3a);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ladder-tile:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 20px rgba(255, 68, 255, 0.4);
+}
+.tile-question {
+  font-size: 2rem;
+  color: #ff44ff;
+  font-weight: bold;
+}
+.tile-revealed {
+  font-size: 2rem;
+}
+.tile-safe {
+  border-color: #44ff44 !important;
+  background: linear-gradient(135deg, #1a3a1a, #0a2a0a) !important;
+}
+.tile-danger {
+  border-color: #ff4444 !important;
+  background: linear-gradient(135deg, #3a1a1a, #2a0a0a) !important;
+}
+.tile-picked {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.ladder-collect-btn {
+  margin-top: 6px;
+  font-size: 1rem;
+  padding: 10px 24px;
+}
+
 /* ═══ ROULETTE ═══ */
 .roul-wheel-wrap {
   display: flex; justify-content: center;
