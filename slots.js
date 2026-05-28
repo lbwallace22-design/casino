@@ -19,7 +19,7 @@ const REEL_WEIGHTS = {
   "7":2,"BAR":4,"CHR":6,"BEL":6,"DIA":5,"LEM":8,"ORG":8,"WLD":2,"BNS":3
 };
 const BONUS_REEL_WEIGHTS = {
-  "7":3,"BAR":5,"CHR":6,"BEL":6,"DIA":5,"LEM":7,"ORG":7,"WLD":5,"BNS":1
+  "7":3,"BAR":5,"CHR":6,"BEL":6,"DIA":5,"LEM":7,"ORG":7,"WLD":5,"BNS":4
 };
 
 function buildPool(weights) {
