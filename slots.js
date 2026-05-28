@@ -168,8 +168,15 @@ function updateSlotTotalLabel() {
     `Buy Hold&Win: $${(total * BUY_HW_MULTIPLIER).toLocaleString()}  |  Buy Ladder: $${(total * BUY_LADDER_MULTIPLIER).toLocaleString()}`;
 }
 
-function randomSymbol() {
-  return REEL_POOL[Math.floor(Math.random() * REEL_POOL.length)];
+// CRN only appears on reels 1, 3, 5 (cols 0, 2, 4)
+const CROWN_REELS = new Set([0, 2, 4]);
+
+function randomSymbol(col) {
+  let sym;
+  do {
+    sym = REEL_POOL[Math.floor(Math.random() * REEL_POOL.length)];
+  } while (sym === 'CRN' && col !== undefined && !CROWN_REELS.has(col));
+  return sym;
 }
 
 // ─── RENDER GRID ───────────────────────────────────────────────────
@@ -298,7 +305,7 @@ function slotSpin() {
   setSlotMsg('Spinning...');
 
   slotFinalGrid = Array.from({length: GRID_ROWS}, () =>
-    Array.from({length: GRID_COLS}, () => randomSymbol())
+    Array.from({length: GRID_COLS}, (_, col) => randomSymbol(col))
   );
 
   animateSlotSpin(0, betPerLine);
@@ -342,7 +349,7 @@ function slotBuyHoldWin() {
   // Fill grid with BNS at coin positions, random elsewhere
   for (let r = 0; r < GRID_ROWS; r++)
     for (let c = 0; c < GRID_COLS; c++)
-      slotGrid[r][c] = randomSymbol();
+      slotGrid[r][c] = randomSymbol(c);
   for (const [r, c] of coinPositions)
     slotGrid[r][c] = 'BNS';
 
@@ -374,7 +381,7 @@ function animateSlotSpin(frame, betPerLine) {
         if (col < locked) {
           slotGrid[row][col] = slotFinalGrid[row][col];
         } else {
-          slotGrid[row][col] = randomSymbol();
+          slotGrid[row][col] = randomSymbol(col);
         }
       }
     }
@@ -477,6 +484,21 @@ function resolveSlot(betPerLine) {
     }
   }
 
+  // ── Tease / edge animations ──
+  const cells = slotEl('slot-grid').children;
+  if (crownCount === 2 && crownCount < 3) {
+    // 2 crowns — tease the near-trigger for ladder
+    for (const [r,c] of crownCells) {
+      cells[r * GRID_COLS + c].classList.add('tease');
+    }
+  }
+  if (bnsCount === HOLD_WIN_TRIGGER - 1) {
+    // 5 coins — tease the near-trigger for Hold & Win
+    for (const [r,c] of bnsCells) {
+      cells[r * GRID_COLS + c].classList.add('tease');
+    }
+  }
+
   balance += totalWin;
   updateSlotBalance();
 
@@ -491,6 +513,8 @@ function resolveSlot(betPerLine) {
       felt.classList.add('big-win');
       setTimeout(() => felt.classList.remove('big-win'), 1200);
     }
+  } else if (crownCount === 2 || bnsCount === HOLD_WIN_TRIGGER - 1) {
+    setSlotMsg('So close! Spin again!', 'win');
   } else {
     setSlotMsg('No win — try again!');
   }
@@ -584,7 +608,7 @@ function animateHoldWinSpin(frame) {
     for (let r = 0; r < GRID_ROWS; r++)
       for (let c = 0; c < GRID_COLS; c++)
         if (holdWinCoins[r][c] === null)
-          slotGrid[r][c] = randomSymbol();
+          slotGrid[r][c] = randomSymbol(c);
     renderHoldWinGrid(true);
     const delay = 50 + frame * 15;
     setTimeout(() => animateHoldWinSpin(frame + 1), delay);
