@@ -10,8 +10,16 @@ const GRID_ROWS = 3;
 const SLOT_SPIN_FRAMES = 20;
 const SLOT_SPIN_DELAY = 60;
 const SLOT_REEL_STOP_DELAY = 350;
+const SLOT_TEASE_EXTRA_FRAMES = 8;
+const SLOT_TEASE_DELAY = 180;
 const BUY_HW_MULTIPLIER = 100;
 const BUY_LADDER_MULTIPLIER = 50;
+
+// Speed presets: multiplier on all delays (lower = faster)
+const SPEED_PRESETS = { slow: 1.5, normal: 1, fast: 0.5, turbo: 0.2 };
+let slotSpeed = 'normal';
+let autoplayActive = false;
+let autoplayCount = 0; // 0 = infinite
 
 const SYMBOLS = ["7","BAR","CHR","BEL","DIA","LEM","ORG","WLD","BNS","CRN"];
 
@@ -259,6 +267,59 @@ function setSlotButtons(enabled) {
   slotEl('btn-buy-holdwin').disabled = !enabled;
   slotEl('btn-buy-ladder').disabled = !enabled;
   slotEl('slot-bet').disabled = !enabled;
+  // Autoplay button always enabled so user can stop
+  const apBtn = slotEl('btn-autoplay');
+  if (apBtn) {
+    apBtn.textContent = autoplayActive ? 'STOP AUTO' : 'AUTO';
+    apBtn.className = autoplayActive ? 'btn red' : 'btn blue';
+  }
+}
+
+function getSpeedMult() {
+  return SPEED_PRESETS[slotSpeed] || 1;
+}
+
+// ─── AUTOPLAY ─────────────────────────────────────────────────────
+function toggleAutoplay() {
+  if (autoplayActive) {
+    autoplayActive = false;
+    setSlotButtons(true);
+    setSlotMsg('Autoplay stopped');
+    return;
+  }
+  const countEl = slotEl('slot-auto-count');
+  autoplayCount = countEl ? (parseInt(countEl.value) || 0) : 0;
+  autoplayActive = true;
+  setSlotButtons(false);
+  slotEl('btn-spin').disabled = true;
+  const apBtn = slotEl('btn-autoplay');
+  if (apBtn) { apBtn.textContent = 'STOP AUTO'; apBtn.className = 'btn red'; }
+  slotSpin();
+}
+
+function autoplayNext() {
+  if (!autoplayActive) return;
+  if (autoplayCount > 0) {
+    autoplayCount--;
+    if (autoplayCount <= 0) {
+      autoplayActive = false;
+      setSlotButtons(true);
+      setSlotMsg('Autoplay finished');
+      return;
+    }
+  }
+  const delay = Math.max(400, 800 * getSpeedMult());
+  setTimeout(() => {
+    if (!autoplayActive) return;
+    slotSpin();
+  }, delay);
+}
+
+function setSlotSpeed(speed) {
+  slotSpeed = speed;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('speed-active', b.dataset.speed === speed);
+  });
 }
 
 // ─── PAYLINE EVALUATION ────────────────────────────────────────────
@@ -386,17 +447,54 @@ function setCellSymbol(cell, sym) {
 }
 
 let _lastLocked = 0;
+let _teaseDetected = false;
+let _teaseExtraUsed = 0;
+
+function checkTeaseCondition() {
+  // Check ALL locked columns so far for near-triggers
+  let crowns = 0, coins = 0;
+  for (let col = 0; col < GRID_COLS; col++)
+    for (let row = 0; row < GRID_ROWS; row++) {
+      if (slotFinalGrid[row][col] === 'CRN') crowns++;
+      if (slotFinalGrid[row][col] === 'BNS') coins++;
+    }
+  return (crowns >= 2) || (coins >= HOLD_WIN_TRIGGER - 1);
+}
 
 function animateSlotSpin(frame, betPerLine) {
-  const totalAnim = SLOT_SPIN_FRAMES + GRID_COLS;
+  const sm = getSpeedMult();
+  const totalBase = SLOT_SPIN_FRAMES + GRID_COLS;
   const container = slotEl('slot-grid');
 
-  if (frame < totalAnim) {
-    const locked = Math.max(0, frame - SLOT_SPIN_FRAMES + 1);
+  // Calculate how many columns should be locked at this frame
+  let locked, inTeaseZone = false;
 
-    // First frame: build grid from scratch, all cells spinning
+  if (frame <= SLOT_SPIN_FRAMES) {
+    locked = 0;
+  } else {
+    const reelFrame = frame - SLOT_SPIN_FRAMES;
+    // If tease detected and we're on the last reel, add extra frames
+    if (_teaseDetected && reelFrame >= GRID_COLS - 1) {
+      locked = GRID_COLS - 1; // hold last reel open
+      _teaseExtraUsed++;
+      inTeaseZone = true;
+      if (_teaseExtraUsed > SLOT_TEASE_EXTRA_FRAMES) {
+        locked = GRID_COLS; // finally lock last reel
+      }
+    } else {
+      locked = Math.min(reelFrame, GRID_COLS);
+    }
+  }
+
+  const totalAnim = totalBase + (_teaseDetected ? SLOT_TEASE_EXTRA_FRAMES : 0);
+  const isDone = locked >= GRID_COLS;
+
+  if (!isDone) {
+    // First frame: build grid from scratch
     if (frame === 0) {
       _lastLocked = 0;
+      _teaseDetected = false;
+      _teaseExtraUsed = 0;
       container.innerHTML = '';
       for (let row = 0; row < GRID_ROWS; row++) {
         for (let col = 0; col < GRID_COLS; col++) {
@@ -412,7 +510,7 @@ function animateSlotSpin(frame, betPerLine) {
       }
     }
 
-    // Update ONLY spinning cells with random symbols
+    // Update spinning cells
     const cells = container.children;
     for (let col = locked; col < GRID_COLS; col++) {
       for (let row = 0; row < GRID_ROWS; row++) {
@@ -422,24 +520,30 @@ function animateSlotSpin(frame, betPerLine) {
       }
     }
 
-    // Lock newly decided columns (only runs once per column)
+    // Lock newly decided columns (once per column)
     if (locked > _lastLocked) {
       for (let col = _lastLocked; col < locked; col++) {
         for (let row = 0; row < GRID_ROWS; row++) {
           slotGrid[row][col] = slotFinalGrid[row][col];
           const cell = cells[row * GRID_COLS + col];
-          const sym = slotFinalGrid[row][col];
-          const d = SYM_DISPLAY[sym];
-          setCellSymbol(cell, sym);
+          setCellSymbol(cell, slotFinalGrid[row][col]);
           cell.className = 'slot-cell landed';
           cell.style.background = '#0f1a30';
           cell.style.borderColor = '#4a5580';
         }
       }
       _lastLocked = locked;
+
+      // Check for tease after locking (but before last reel)
+      if (locked >= GRID_COLS - 1 && !_teaseDetected && locked < GRID_COLS) {
+        if (checkTeaseCondition()) {
+          _teaseDetected = true;
+          setSlotMsg('...', 'win');
+        }
+      }
     }
 
-    // Tease: check locked reels for near-triggers, apply to spinning cells
+    // Apply tease glow to spinning cells
     if (locked > 0 && locked < GRID_COLS) {
       let lockedCrowns = 0, lockedCoins = 0;
       for (let col = 0; col < locked; col++)
@@ -454,15 +558,36 @@ function animateSlotSpin(frame, betPerLine) {
       }
     }
 
+    // Calculate delay
     let delay;
     if (frame < SLOT_SPIN_FRAMES) {
       const progress = frame / SLOT_SPIN_FRAMES;
-      delay = Math.floor(SLOT_SPIN_DELAY + progress * progress * 120);
+      delay = Math.floor((SLOT_SPIN_DELAY + progress * progress * 120) * sm);
+    } else if (inTeaseZone) {
+      // Slow-mo tease: gets progressively slower
+      const teaseProgress = _teaseExtraUsed / SLOT_TEASE_EXTRA_FRAMES;
+      delay = Math.floor(SLOT_TEASE_DELAY * (1 + teaseProgress * 1.5) * sm);
     } else {
-      delay = SLOT_REEL_STOP_DELAY;
+      delay = Math.floor(SLOT_REEL_STOP_DELAY * sm);
     }
     setTimeout(() => animateSlotSpin(frame + 1, betPerLine), delay);
   } else {
+    // All reels locked — resolve
+    // Lock final column if not yet
+    const cells = container.children;
+    if (_lastLocked < GRID_COLS) {
+      for (let col = _lastLocked; col < GRID_COLS; col++) {
+        for (let row = 0; row < GRID_ROWS; row++) {
+          slotGrid[row][col] = slotFinalGrid[row][col];
+          const cell = cells[row * GRID_COLS + col];
+          setCellSymbol(cell, slotFinalGrid[row][col]);
+          cell.className = 'slot-cell landed';
+          cell.style.background = '#0f1a30';
+          cell.style.borderColor = '#4a5580';
+        }
+      }
+      _lastLocked = GRID_COLS;
+    }
     for (let row = 0; row < GRID_ROWS; row++)
       for (let col = 0; col < GRID_COLS; col++)
         slotGrid[row][col] = slotFinalGrid[row][col];
@@ -587,6 +712,7 @@ function resolveSlot(betPerLine) {
     updateSlotBalance();
   }
   setSlotButtons(true);
+  if (autoplayActive) autoplayNext();
 }
 
 // ─── HOLD & WIN BONUS ──────────────────────────────────────────────
@@ -734,6 +860,7 @@ function endHoldWin() {
     updateSlotBalance();
   }
   setSlotButtons(true);
+  if (autoplayActive) autoplayNext();
 }
 
 // ─── MULTIPLIER LADDER BONUS ───────────────────────────────────────
@@ -912,6 +1039,7 @@ function endLadder() {
   } else {
     setSlotButtons(true);
   }
+  if (autoplayActive) autoplayNext();
 }
 
 // ─── INIT ──────────────────────────────────────────────────────────
