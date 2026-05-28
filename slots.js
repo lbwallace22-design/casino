@@ -71,14 +71,14 @@ const PAYLINE_COLORS = [
 
 // Symbol display config
 const SYM_DISPLAY = {
-  "7":   { emoji:"7️⃣",  label:"7",     bg:"#3a1515", border:"#ff4444", color:"#ff4444" },
+  "7":   { emoji:"7️⃣",  label:"",      bg:"#3a1515", border:"#ff4444", color:"#ff4444" },
   "BAR": { emoji:"",     label:"BAR",   bg:"#2a2a2a", border:"#888",    color:"#ccc" },
   "CHR": { emoji:"🍒",  label:"",      bg:"#2a1520", border:"#cc0000", color:"#cc0000" },
   "BEL": { emoji:"🔔",  label:"",      bg:"#2a2515", border:"#f0c040", color:"#f0c040" },
   "DIA": { emoji:"💎",  label:"",      bg:"#152535", border:"#44bbff", color:"#44bbff" },
   "LEM": { emoji:"🍋",  label:"",      bg:"#2a2a15", border:"#ddee22", color:"#ddee22" },
   "ORG": { emoji:"🍊",  label:"",      bg:"#2a2015", border:"#ff8833", color:"#ff8833" },
-  "WLD": { emoji:"⭐",  label:"",      bg:"#2a1a00", border:"#ff6600", color:"#ff6600", big:true },
+  "WLD": { emoji:"⭐",  label:"WILD",  bg:"#2a1a00", border:"#ff6600", color:"#ff6600", mid:true },
   "BNS": { emoji:"💰",  label:"",      bg:"#2a2200", border:"#f0c040", color:"#f0c040", big:true },
   "CRN": { emoji:"👑",  label:"",      bg:"#2a1a2a", border:"#ff44ff", color:"#ff44ff", big:true },
 };
@@ -205,11 +205,11 @@ function renderSlotGrid(highlightCells) {
         cell.style.borderColor = isHL ? d.border : '#333';
         cell.style.borderWidth = isHL ? '2px' : '1px';
 
-        const bigCls = d.big ? ' slot-emoji-big' : '';
+        const sizeCls = d.big ? ' slot-emoji-big' : d.mid ? ' slot-emoji-mid' : '';
         if (d.emoji && !d.label) {
-          cell.innerHTML = `<span class="slot-emoji${bigCls}">${d.emoji}</span>`;
+          cell.innerHTML = `<span class="slot-emoji${sizeCls}">${d.emoji}</span>`;
         } else if (d.emoji && d.label) {
-          cell.innerHTML = `<span class="slot-emoji${bigCls}">${d.emoji}</span><span class="slot-label" style="color:${d.color}">${d.label}</span>`;
+          cell.innerHTML = `<span class="slot-emoji${sizeCls}">${d.emoji}</span><span class="slot-label" style="color:${d.color}">${d.label}</span>`;
         } else {
           cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
         }
@@ -437,11 +437,11 @@ function slotBuyLadder() {
 function setCellSymbol(cell, sym) {
   if (sym && SYM_DISPLAY[sym]) {
     const d = SYM_DISPLAY[sym];
-    const bigCls = d.big ? ' slot-emoji-big' : '';
+    const sizeCls = d.big ? ' slot-emoji-big' : d.mid ? ' slot-emoji-mid' : '';
     if (d.emoji && !d.label) {
-      cell.innerHTML = `<span class="slot-emoji${bigCls}">${d.emoji}</span>`;
+      cell.innerHTML = `<span class="slot-emoji${sizeCls}">${d.emoji}</span>`;
     } else if (d.emoji && d.label) {
-      cell.innerHTML = `<span class="slot-emoji${bigCls}">${d.emoji}</span><span class="slot-label" style="color:${d.color}">${d.label}</span>`;
+      cell.innerHTML = `<span class="slot-emoji${sizeCls}">${d.emoji}</span><span class="slot-label" style="color:${d.color}">${d.label}</span>`;
     } else {
       cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
     }

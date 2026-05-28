@@ -313,6 +313,9 @@ body {
   font-size: 1.2rem;
   font-weight: bold;
 }
+.slot-emoji-mid {
+  font-size: 2.2rem;
+}
 .slot-emoji-big {
   font-size: 2.8rem;
 }
@@ -634,6 +637,7 @@ body {
   .player-hand-box { min-width: 90px; padding: 4px 4px 2px; }
   .top-bar input { width: 55px; font-size: 0.85rem; }
   .slot-emoji { font-size: 1.4rem; }
+  .slot-emoji-mid { font-size: 1.7rem; }
   .slot-emoji-big { font-size: 2.2rem; }
   .slot-label { font-size: 0.5rem; }
   .slot-text { font-size: 1rem; }
