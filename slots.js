@@ -371,46 +371,86 @@ function slotBuyLadder() {
 }
 
 // ─── ANIMATION ─────────────────────────────────────────────────────
+// Helper: set a single cell's content without recreating it
+function setCellSymbol(cell, sym) {
+  if (sym && SYM_DISPLAY[sym]) {
+    const d = SYM_DISPLAY[sym];
+    if (d.emoji && !d.label) {
+      cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
+    } else if (d.emoji && d.label) {
+      cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span><span class="slot-label" style="color:${d.color}">${d.label}</span>`;
+    } else {
+      cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
+    }
+  }
+}
+
+let _lastLocked = 0;
+
 function animateSlotSpin(frame, betPerLine) {
   const totalAnim = SLOT_SPIN_FRAMES + GRID_COLS;
+  const container = slotEl('slot-grid');
 
   if (frame < totalAnim) {
     const locked = Math.max(0, frame - SLOT_SPIN_FRAMES + 1);
-    for (let col = 0; col < GRID_COLS; col++) {
+
+    // First frame: build grid from scratch, all cells spinning
+    if (frame === 0) {
+      _lastLocked = 0;
+      container.innerHTML = '';
       for (let row = 0; row < GRID_ROWS; row++) {
-        if (col < locked) {
-          slotGrid[row][col] = slotFinalGrid[row][col];
-        } else {
-          slotGrid[row][col] = randomSymbol(col);
+        for (let col = 0; col < GRID_COLS; col++) {
+          const sym = randomSymbol(col);
+          slotGrid[row][col] = sym;
+          const cell = document.createElement('div');
+          cell.className = 'slot-cell spinning';
+          cell.style.background = '#0f1a30';
+          cell.style.borderColor = '#333';
+          setCellSymbol(cell, sym);
+          container.appendChild(cell);
         }
       }
     }
-    renderSlotGrid();
 
-    // Apply spinning/landed CSS classes to cells
-    const cells = slotEl('slot-grid').children;
+    // Update ONLY spinning cells with random symbols
+    const cells = container.children;
+    for (let col = locked; col < GRID_COLS; col++) {
+      for (let row = 0; row < GRID_ROWS; row++) {
+        const sym = randomSymbol(col);
+        slotGrid[row][col] = sym;
+        setCellSymbol(cells[row * GRID_COLS + col], sym);
+      }
+    }
 
-    // Count near-triggers in locked reels
-    let lockedCrowns = 0, lockedCoins = 0;
+    // Lock newly decided columns (only runs once per column)
+    if (locked > _lastLocked) {
+      for (let col = _lastLocked; col < locked; col++) {
+        for (let row = 0; row < GRID_ROWS; row++) {
+          slotGrid[row][col] = slotFinalGrid[row][col];
+          const cell = cells[row * GRID_COLS + col];
+          const sym = slotFinalGrid[row][col];
+          const d = SYM_DISPLAY[sym];
+          setCellSymbol(cell, sym);
+          cell.className = 'slot-cell landed';
+          cell.style.background = '#0f1a30';
+          cell.style.borderColor = '#4a5580';
+        }
+      }
+      _lastLocked = locked;
+    }
+
+    // Tease: check locked reels for near-triggers, apply to spinning cells
     if (locked > 0 && locked < GRID_COLS) {
+      let lockedCrowns = 0, lockedCoins = 0;
       for (let col = 0; col < locked; col++)
         for (let row = 0; row < GRID_ROWS; row++) {
           if (slotFinalGrid[row][col] === 'CRN') lockedCrowns++;
           if (slotFinalGrid[row][col] === 'BNS') lockedCoins++;
         }
-    }
-    const teaseSpinning = (lockedCrowns >= 2) || (lockedCoins >= HOLD_WIN_TRIGGER - 1);
-
-    for (let col = 0; col < GRID_COLS; col++) {
-      for (let row = 0; row < GRID_ROWS; row++) {
-        const cell = cells[row * GRID_COLS + col];
-        if (col < locked) {
-          cell.classList.remove('spinning', 'tease');
-          cell.classList.add('landed');
-        } else {
-          cell.classList.add('spinning');
-          if (teaseSpinning) cell.classList.add('tease');
-        }
+      if (lockedCrowns >= 2 || lockedCoins >= HOLD_WIN_TRIGGER - 1) {
+        for (let col = locked; col < GRID_COLS; col++)
+          for (let row = 0; row < GRID_ROWS; row++)
+            cells[row * GRID_COLS + col].classList.add('tease');
       }
     }
 
