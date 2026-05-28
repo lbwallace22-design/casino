@@ -254,26 +254,23 @@ body {
   100% { transform: translateY(-2px); }
 }
 
-/* Bounce-land when reel stops */
+/* Clean snap-in when reel stops */
 .slot-cell.landed {
-  animation: cell-land 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: cell-land 0.2s ease-out forwards;
   border-color: #4a5580;
 }
 @keyframes cell-land {
-  0%   { transform: translateY(-18px) scaleY(1.2) scaleX(0.9); opacity: 0.4; }
-  50%  { transform: translateY(4px) scaleY(0.92) scaleX(1.04); opacity: 1; }
-  75%  { transform: translateY(-2px) scaleY(1.03); }
-  100% { transform: translateY(0) scale(1); }
+  0%   { transform: translateY(-4px); opacity: 0.6; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
-/* Pop-in for emoji inside landed cell */
+/* Subtle fade-in for emoji inside landed cell */
 .slot-cell.landed .slot-emoji {
-  animation: emoji-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  animation: emoji-pop 0.15s ease-out both;
 }
 @keyframes emoji-pop {
-  0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
-  60%  { transform: scale(1.2) rotate(3deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); }
+  0%   { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* Winning cells celebration */
