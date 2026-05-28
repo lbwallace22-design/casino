@@ -31,6 +31,7 @@ let showDoubleCard = true;
 let betMode = 'per_hand';
 let runningCount = 0;
 let cardsSeen = 0;
+let holeCardCounted = false;
 
 let stats = { hands:0, wins:0, losses:0, pushes:0, bjs:0 };
 
@@ -350,6 +351,7 @@ function bjDeal() {
   updateBalance();
   insuranceTaken = false;
   insuranceCost = 0;
+  holeCardCounted = false;
 
   // Init empty hands
   dealerHand = [];
@@ -436,7 +438,7 @@ function bjInsurance(take) {
 function checkDealerBJ() {
   const dv = handValue(dealerHand);
   if (dv === 21) {
-    countCard(dealerHand[1]);
+    if (!holeCardCounted) { countCard(dealerHand[1]); holeCardCounted = true; }
     renderDealer(false);
     if (insuranceTaken) {
       const p = insuranceCost * 3;
@@ -565,7 +567,7 @@ function advanceOrDealer() {
   renderHands();
 
   // Count the hole card now that it's revealed
-  countCard(dealerHand[1]);
+  if (!holeCardCounted) { countCard(dealerHand[1]); holeCardCounted = true; }
 
   if (hands.every(h => h.result === 'bust')) {
     renderDealer(false);
