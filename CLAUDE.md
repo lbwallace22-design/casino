@@ -29,7 +29,10 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - **Hold & Win**: 6+ BNS triggers. Coins lock, empty cells re-spin. New coin resets spins to 3. Grand bonus for full grid.
 - **Multiplier Ladder**: 3+ CRN triggers. Pick 1-of-3 tiles to climb (2x→1000x). Can collect early.
 - **Buy features**: Hold & Win costs 100× total bet, Ladder costs 50× total bet.
-- **Animation**: Reels stop left-to-right with bounce/pop CSS animations.
+- **Crown reels**: CRN only spawns on reels 1, 3, 5 (cols 0, 2, 4) via `CROWN_REELS` set
+- **Tease animations**: 2 crowns or 5 coins trigger golden pulse on those cells + "So close!" msg
+- **Animation**: Reels stop left-to-right with bounce/pop CSS. Big win (10x+) shakes machine.
+- **Coin size**: Hold & Win coins use 2.4rem emoji, 0.75rem value text
 
 ## Roulette Key Details
 - Canvas-drawn wheel with ball animation
@@ -39,7 +42,9 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 ## Blackjack Key Details
 - 1–7 simultaneous hands, per-hand or total bet mode
 - Insurance prompt on dealer Ace
-- Running count / true count display
+- Running count / true count display (hole card excluded until reveal via `holeCardCounted` flag)
+- `drawCard(counted)` — pass `false` to draw without counting (used for dealer hole card)
+- `countCard(card)` — count a previously uncounted card on reveal
 - Show/hide double-down card option
 
 ## Deployment
