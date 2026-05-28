@@ -380,6 +380,20 @@ function animateSlotSpin(frame, betPerLine) {
     }
     renderSlotGrid();
 
+    // Apply spinning/landed CSS classes to cells
+    const cells = slotEl('slot-grid').children;
+    for (let col = 0; col < GRID_COLS; col++) {
+      for (let row = 0; row < GRID_ROWS; row++) {
+        const cell = cells[row * GRID_COLS + col];
+        if (col < locked) {
+          cell.classList.remove('spinning');
+          cell.classList.add('landed');
+        } else {
+          cell.classList.add('spinning');
+        }
+      }
+    }
+
     let delay;
     if (frame < SLOT_SPIN_FRAMES) {
       const progress = frame / SLOT_SPIN_FRAMES;
@@ -450,6 +464,19 @@ function resolveSlot(betPerLine) {
 
   renderSlotGrid(winningCells.size > 0 ? winningCells : null);
 
+  // Apply winning animation classes to highlighted cells
+  if (winningCells.size > 0) {
+    const cells = slotEl('slot-grid').children;
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const cell = cells[row * GRID_COLS + col];
+        if (winningCells.has(`${row},${col}`)) {
+          cell.classList.add('winning');
+        }
+      }
+    }
+  }
+
   balance += totalWin;
   updateSlotBalance();
 
@@ -457,6 +484,13 @@ function resolveSlot(betPerLine) {
     slotStats.wins++;
     slotStats.totalWon += totalWin;
     setSlotMsg(`WIN! +$${totalWin.toLocaleString()}`, 'win');
+    // Shake machine on big wins (10x+ bet)
+    const totalBet = (parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET) * NUM_LINES;
+    if (totalWin >= totalBet * 10) {
+      const felt = document.querySelector('.slot-machine-felt');
+      felt.classList.add('big-win');
+      setTimeout(() => felt.classList.remove('big-win'), 1200);
+    }
   } else {
     setSlotMsg('No win — try again!');
   }

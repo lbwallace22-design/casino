@@ -49,12 +49,13 @@ body {
 /* ═══ BUTTONS ═══ */
 .btn {
   font-size: 0.95rem; font-weight: bold; color: white;
-  border: none; border-radius: 6px; padding: 10px 16px; cursor: pointer;
-  transition: filter 0.15s, opacity 0.15s;
+  border: none; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  transition: transform 0.15s, filter 0.15s, opacity 0.15s;
   white-space: nowrap;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3);
 }
-.btn:active { filter: brightness(0.8); }
-.btn:disabled { opacity: 0.35; cursor: default; }
+.btn:active { filter: brightness(0.85); transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); }
+.btn:disabled { opacity: 0.35; cursor: default; transform: none; }
 .btn-row {
   display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
   padding: 8px 4px;
@@ -186,9 +187,21 @@ body {
 .msg {
   font-size: 1rem; font-weight: bold; text-align: center;
   padding: 6px 4px; min-height: 1.4em;
+  transition: color 0.2s;
 }
-.msg.win { color: #f0c040; }
-.msg.lose { color: #e94560; }
+.msg.win {
+  color: #f0c040;
+  animation: msg-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.msg.lose {
+  color: #e94560;
+  animation: msg-pop 0.3s ease-out;
+}
+@keyframes msg-pop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  70%  { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
 .detail { font-size: 0.8rem; color: #f0c040; text-align: center; min-height: 1.1em; }
 .stats-row { font-size: 0.75rem; color: #999; text-align: center; padding: 4px; }
 
@@ -197,34 +210,100 @@ body {
 /* ═══ SLOT MACHINE ═══ */
 .slot-machine-felt {
   background: linear-gradient(180deg, #16213e 0%, #0f1a30 100%);
-  border: 4px solid #333;
-  border-radius: 16px;
-  padding: 8px;
+  border: 4px solid #444;
+  border-radius: 20px;
+  padding: 10px;
   width: 100%;
   max-width: 560px;
   margin: 6px auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  overflow: hidden;
 }
 .slot-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 4px;
+  gap: 5px;
 }
 .slot-cell {
   aspect-ratio: 5 / 4;
-  background: #0f1a30;
-  border: 1px solid #333;
-  border-radius: 6px;
+  background: linear-gradient(160deg, #141e38 0%, #0c1628 100%);
+  border: 2px solid #2a3050;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: background 0.15s, border-color 0.15s;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
+/* Spinning blur effect */
+.slot-cell.spinning {
+  animation: cell-blur 0.12s linear infinite;
+}
+.slot-cell.spinning .slot-emoji,
+.slot-cell.spinning .slot-text,
+.slot-cell.spinning .slot-label {
+  filter: blur(1px);
+  opacity: 0.7;
+}
+@keyframes cell-blur {
+  0%   { transform: translateY(-2px); }
+  50%  { transform: translateY(2px); }
+  100% { transform: translateY(-2px); }
+}
+
+/* Bounce-land when reel stops */
+.slot-cell.landed {
+  animation: cell-land 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  border-color: #4a5580;
+}
+@keyframes cell-land {
+  0%   { transform: translateY(-18px) scaleY(1.2) scaleX(0.9); opacity: 0.4; }
+  50%  { transform: translateY(4px) scaleY(0.92) scaleX(1.04); opacity: 1; }
+  75%  { transform: translateY(-2px) scaleY(1.03); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Pop-in for emoji inside landed cell */
+.slot-cell.landed .slot-emoji {
+  animation: emoji-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+@keyframes emoji-pop {
+  0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Winning cells celebration */
+.slot-cell.winning {
+  animation: cell-win 0.6s ease-in-out 3;
+  border-color: #f0c040 !important;
+  box-shadow: 0 0 12px rgba(240, 192, 64, 0.4);
+}
+@keyframes cell-win {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(240,192,64,0.2); }
+  50%      { transform: scale(1.08); box-shadow: 0 0 20px rgba(240,192,64,0.6); }
+}
+
+/* Big win shake on the whole machine */
+.slot-machine-felt.big-win {
+  animation: machine-shake 0.5s ease-in-out 2;
+}
+@keyframes machine-shake {
+  0%, 100% { transform: translateX(0); }
+  15%  { transform: translateX(-4px) rotate(-0.5deg); }
+  30%  { transform: translateX(4px) rotate(0.5deg); }
+  45%  { transform: translateX(-3px); }
+  60%  { transform: translateX(3px); }
+  75%  { transform: translateX(-1px); }
+}
+
 .slot-emoji {
   font-size: 1.8rem;
   line-height: 1;
+  transition: transform 0.15s;
 }
 .slot-label {
   font-size: 0.55rem;
@@ -266,18 +345,35 @@ body {
 
 /* ═══ HOLD & WIN ═══ */
 .hw-coin {
-  animation: coin-glow 1.5s ease-in-out infinite;
+  animation: coin-bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+             coin-glow 1.5s ease-in-out 0.5s infinite;
+}
+@keyframes coin-bounce-in {
+  0%   { transform: scale(0) rotate(-20deg); }
+  60%  { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 @keyframes coin-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(240, 192, 64, 0.3); }
-  50% { box-shadow: 0 0 14px rgba(240, 192, 64, 0.6); }
+  0%, 100% { box-shadow: 0 0 8px rgba(240, 192, 64, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(240, 192, 64, 0.6), 0 0 30px rgba(240, 192, 64, 0.2); }
 }
 .coin-value {
   font-size: 0.65rem;
   font-weight: bold;
   color: #f0c040;
   margin-top: 1px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* New coin landing flash */
+.hw-coin.hw-new {
+  animation: coin-land-flash 0.6s ease-out forwards, coin-glow 1.5s ease-in-out 0.6s infinite;
+}
+@keyframes coin-land-flash {
+  0%   { transform: scale(0) rotate(-30deg); background: #ffdd44; }
+  40%  { transform: scale(1.3) rotate(8deg); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 
 /* ═══ MULTIPLIER LADDER ═══ */

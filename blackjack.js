@@ -48,13 +48,20 @@ function shuffle(a) {
   }
   return a;
 }
-function drawCard() {
+function drawCard(counted = true) {
   if (deck.length < 20) newShoe();
   const c = deck.pop();
-  runningCount += hiloValue(c.rank);
+  if (counted) {
+    runningCount += hiloValue(c.rank);
+    cardsSeen++;
+    updateCountDisplay();
+  }
+  return c;
+}
+function countCard(card) {
+  runningCount += hiloValue(card.rank);
   cardsSeen++;
   updateCountDisplay();
-  return c;
 }
 function newShoe() {
   deck = makeDeck(NUM_DECKS);
@@ -380,7 +387,9 @@ function processDealQueue(queue) {
     hands[action.pos].cards.push(drawCard());
     renderHands();
   } else {
-    dealerHand.push(drawCard());
+    // Dealer's second card is the hole card — don't count it yet
+    const isHoleCard = dealerHand.length === 1;
+    dealerHand.push(drawCard(!isHoleCard));
     renderDealer(true);
   }
   setTimeout(() => processDealQueue(queue), DEAL_DELAY);
@@ -427,6 +436,7 @@ function bjInsurance(take) {
 function checkDealerBJ() {
   const dv = handValue(dealerHand);
   if (dv === 21) {
+    countCard(dealerHand[1]);
     renderDealer(false);
     if (insuranceTaken) {
       const p = insuranceCost * 3;
@@ -553,6 +563,9 @@ function advanceOrDealer() {
     }
   }
   renderHands();
+
+  // Count the hole card now that it's revealed
+  countCard(dealerHand[1]);
 
   if (hands.every(h => h.result === 'bust')) {
     renderDealer(false);
