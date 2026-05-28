@@ -389,14 +389,27 @@ function animateSlotSpin(frame, betPerLine) {
 
     // Apply spinning/landed CSS classes to cells
     const cells = slotEl('slot-grid').children;
+
+    // Count near-triggers in locked reels
+    let lockedCrowns = 0, lockedCoins = 0;
+    if (locked > 0 && locked < GRID_COLS) {
+      for (let col = 0; col < locked; col++)
+        for (let row = 0; row < GRID_ROWS; row++) {
+          if (slotFinalGrid[row][col] === 'CRN') lockedCrowns++;
+          if (slotFinalGrid[row][col] === 'BNS') lockedCoins++;
+        }
+    }
+    const teaseSpinning = (lockedCrowns >= 2) || (lockedCoins >= HOLD_WIN_TRIGGER - 1);
+
     for (let col = 0; col < GRID_COLS; col++) {
       for (let row = 0; row < GRID_ROWS; row++) {
         const cell = cells[row * GRID_COLS + col];
         if (col < locked) {
-          cell.classList.remove('spinning');
+          cell.classList.remove('spinning', 'tease');
           cell.classList.add('landed');
         } else {
           cell.classList.add('spinning');
+          if (teaseSpinning) cell.classList.add('tease');
         }
       }
     }
@@ -481,21 +494,6 @@ function resolveSlot(betPerLine) {
           cell.classList.add('winning');
         }
       }
-    }
-  }
-
-  // ── Tease / edge animations ──
-  const cells = slotEl('slot-grid').children;
-  if (crownCount === 2 && crownCount < 3) {
-    // 2 crowns — tease the near-trigger for ladder
-    for (const [r,c] of crownCells) {
-      cells[r * GRID_COLS + c].classList.add('tease');
-    }
-  }
-  if (bnsCount === HOLD_WIN_TRIGGER - 1) {
-    // 5 coins — tease the near-trigger for Hold & Win
-    for (const [r,c] of bnsCells) {
-      cells[r * GRID_COLS + c].classList.add('tease');
     }
   }
 
