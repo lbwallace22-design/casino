@@ -314,7 +314,7 @@ body {
   font-weight: bold;
 }
 .slot-emoji-big {
-  font-size: 2.2rem;
+  font-size: 2.8rem;
 }
 .slot-bonus-bar {
   background: rgba(255,102,0,0.15);
@@ -634,7 +634,7 @@ body {
   .player-hand-box { min-width: 90px; padding: 4px 4px 2px; }
   .top-bar input { width: 55px; font-size: 0.85rem; }
   .slot-emoji { font-size: 1.4rem; }
-  .slot-emoji-big { font-size: 1.8rem; }
+  .slot-emoji-big { font-size: 2.2rem; }
   .slot-label { font-size: 0.5rem; }
   .slot-text { font-size: 1rem; }
   .hw-coin .slot-emoji { font-size: 1.6rem; }
