@@ -8,11 +8,14 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 ## Files
 | File | Purpose |
 |------|---------|
-| `index.html` | Single-page shell: menu + 3 game screens (blackjack, slots, roulette) |
-| `style.css` | All styling including card, slot, roulette, ladder overlay, responsive |
-| `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display |
-| `slots.js` | Slot machine: 5×3 grid, 10 paylines, Hold & Win bonus, Multiplier Ladder bonus, buy features |
+| `index.html` | Single-page shell: menu + 6 game screens (blackjack, slots, roulette, mines, plinko, crash) |
+| `style.css` | All styling including card, slot, roulette, ladder overlay, mines/plinko/crash, responsive |
+| `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display. Also holds shared state (`balance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
+| `slots.js` | Slot machine: 5×3 grid, 10 paylines, Hold & Win bonus, Multiplier Ladder bonus, buy features, autoplay, speed presets |
 | `roulette.js` | Roulette: canvas wheel, ball physics animation, full bet board |
+| `mines.js` | Mines: 5×5 grid, 1–24 mines, multiplier grows per safe pick, cash out anytime |
+| `plinko.js` | Plinko: canvas peg board (12 rows), low/med/high risk tables, concurrent balls |
+| `crash.js` | Crash: canvas multiplier curve, cash out before crash, auto cash-out, history chips |
 | `sw.js` | Service worker for offline PWA caching (bump `CACHE_NAME` version on every change!) |
 | `manifest.json` | PWA manifest |
 | `icon-192.png` / `icon-512.png` | App icons |
@@ -46,6 +49,24 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - `drawCard(counted)` — pass `false` to draw without counting (used for dealer hole card)
 - `countCard(card)` — count a previously uncounted card on reveal
 - Show/hide double-down card option
+
+## Mines Key Details
+- 5×5 grid, `minesMultiplier(picks, mines)` = ∏ (25−i)/(25−M−i) × 0.97 house edge
+- Auto cash-out when every safe tile is revealed
+
+## Plinko Key Details
+- 12 rows, 13 buckets, fair binomial path (bucket = # of rights)
+- Multiplier tables per risk in `PLINKO_MULTS` (Stake-style values)
+- Multiple concurrent balls; each ball locks its mult table at drop time
+
+## Crash Key Details
+- Crash point: `0.96/(1−U)` clamped to [1, 1000] → 4% instant crash, ~4% edge
+- Multiplier: `e^(0.18t)` (doubles every ~3.9s); tick every 40ms
+- Auto cash-out via "Auto @" input; last 10 crash points shown as chips
+
+## Bet Input Safety
+- All bet inputs are clamped (negative/zero → default). Never trust `parseInt` raw —
+  a negative bet would ADD money via `balance -= bet`.
 
 ## Deployment
 1. Make changes

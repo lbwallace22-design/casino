@@ -207,7 +207,8 @@ function initWheelCanvas() {
 // ─── BETS ──────────────────────────────────────────────────────────
 function roulPlaceBet(betType, value) {
   if (roulSpinning) return;
-  const amount = parseInt(roulEl('roul-bet').value) || ROUL_DEFAULT_BET;
+  let amount = parseInt(roulEl('roul-bet').value) || ROUL_DEFAULT_BET;
+  if (amount < 1) amount = ROUL_DEFAULT_BET;
   if (amount > balance) {
     setRoulMsg('Not enough balance!', 'lose');
     return;

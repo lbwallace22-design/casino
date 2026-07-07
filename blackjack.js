@@ -293,6 +293,15 @@ function launchGame(game) {
   } else if (game === 'roulette') {
     showScreen('roulette-screen');
     initRoulette();
+  } else if (game === 'mines') {
+    showScreen('mines-screen');
+    initMines();
+  } else if (game === 'plinko') {
+    showScreen('plinko-screen');
+    initPlinko();
+  } else if (game === 'crash') {
+    showScreen('crash-screen');
+    initCrash();
   }
 }
 function backToMenu() {
@@ -312,10 +321,16 @@ function checkAutoReset() {
 function bjMaxBet() {
   if (gameActive) return;
   const n = parseInt($('bj-hands').value) || DEFAULT_HANDS;
-  const maxPerHand = Math.floor(balance / n);
-  if (maxPerHand < 5) return;
-  // Round down to nearest 5
-  const bet = Math.floor(maxPerHand / 5) * 5;
+  let bet;
+  if (betMode === 'total') {
+    // Input is the TOTAL bet in this mode
+    bet = Math.floor(balance / 5) * 5;
+    if (Math.floor(bet / n) < 5) return;
+  } else {
+    const maxPerHand = Math.floor(balance / n);
+    if (maxPerHand < 5) return;
+    bet = Math.floor(maxPerHand / 5) * 5;
+  }
   $('bj-bet').value = bet;
   updateTotalLabel();
 }
@@ -499,6 +514,7 @@ function bjStand() {
 function bjDouble() {
   if (!gameActive) return;
   const h = hands[activeHand];
+  if (balance < h.bet) return;
   balance -= h.bet;
   h.bet *= 2;
   updateBalance();
@@ -519,6 +535,7 @@ function bjDouble() {
 function bjSplit() {
   if (!gameActive) return;
   const h = hands[activeHand];
+  if (balance < h.bet) return;
   const pos = h.position;
   const [c1, c2] = h.cards;
   balance -= h.bet;
@@ -529,6 +546,7 @@ function bjSplit() {
                 position:pos, fromSplit:true, doubleHidden:false };
   hands.splice(activeHand, 1, h1, h2);
   if (handValue(h1.cards) === 21) h1.done = true;
+  if (handValue(h2.cards) === 21) h2.done = true;
   renderHands();
   if (h1.done) {
     advanceOrDealer();

@@ -21,6 +21,9 @@
     <button class="menu-btn blue" onclick="launchGame('blackjack')">BLACKJACK</button>
     <button class="menu-btn orange" onclick="launchGame('slots')">SLOT MACHINE</button>
     <button class="menu-btn red" onclick="launchGame('roulette')">ROULETTE</button>
+    <button class="menu-btn purple" onclick="launchGame('mines')">MINES</button>
+    <button class="menu-btn teal" onclick="launchGame('plinko')">PLINKO</button>
+    <button class="menu-btn green" onclick="launchGame('crash')">CRASH</button>
   </div>
   <div class="deposit-row">
     <span class="muted">Balance resets to $5,000 when below $500</span>
@@ -206,9 +209,122 @@
   </div>
 </div>
 
+<!-- ═══ MINES ═══ -->
+<div id="mines-screen" class="screen">
+  <div class="top-bar">
+    <div class="balance-display" id="mines-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label>Bet: $</label>
+      <input type="number" id="mines-bet" value="25" min="1" max="100000" step="5">
+    </div>
+    <div class="bet-controls">
+      <label>Mines:</label>
+      <input type="number" id="mines-count" value="3" min="1" max="24" step="1">
+    </div>
+  </div>
+
+  <div class="stats-row" id="mines-stats">Games: 0  |  Wins: 0  |  Won: $0</div>
+
+  <div class="mines-felt">
+    <div class="mines-grid" id="mines-grid"></div>
+  </div>
+
+  <div class="msg" id="mines-msg">Set your bet and mines, then START!</div>
+  <div class="detail" id="mines-detail"></div>
+
+  <div class="btn-row">
+    <button class="btn green" id="btn-mines-start" onclick="minesStart()">START</button>
+    <button class="btn orange" id="btn-mines-cashout" onclick="minesCashout()" disabled>CASH OUT</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <div class="slot-paytable">
+    Reveal gems 💎 to grow your multiplier — hit a mine 💣 and lose it all.<br>
+    More mines = bigger multipliers. Cash out any time!
+  </div>
+</div>
+
+<!-- ═══ PLINKO ═══ -->
+<div id="plinko-screen" class="screen">
+  <div class="top-bar">
+    <div class="balance-display" id="plinko-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label>Bet: $</label>
+      <input type="number" id="plinko-bet" value="10" min="1" max="100000" step="5">
+    </div>
+  </div>
+
+  <div class="stats-row" id="plinko-stats">Drops: 0  |  Won: $0</div>
+
+  <div class="slot-controls-row">
+    <div class="speed-controls">
+      <span class="muted">Risk:</span>
+      <button class="speed-btn plinko-risk-btn" data-risk="low" onclick="setPlinkoRisk('low')">LOW</button>
+      <button class="speed-btn plinko-risk-btn speed-active" data-risk="medium" onclick="setPlinkoRisk('medium')">MED</button>
+      <button class="speed-btn plinko-risk-btn" data-risk="high" onclick="setPlinkoRisk('high')">HIGH</button>
+    </div>
+  </div>
+
+  <div class="plinko-wrap">
+    <canvas id="plinko-canvas"></canvas>
+  </div>
+
+  <div class="msg" id="plinko-msg">Pick a risk level and DROP!</div>
+
+  <div class="btn-row">
+    <button class="btn green" id="btn-plinko-drop" onclick="plinkoDrop()">DROP BALL</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <div class="slot-paytable">
+    Drop balls down the pegs — edges pay the most!<br>
+    Drop as many balls as you want, even at the same time.
+  </div>
+</div>
+
+<!-- ═══ CRASH ═══ -->
+<div id="crash-screen" class="screen">
+  <div class="top-bar">
+    <div class="balance-display" id="crash-balance">Balance: $5,000</div>
+    <div class="bet-controls">
+      <label>Bet: $</label>
+      <input type="number" id="crash-bet" value="25" min="1" max="100000" step="5">
+    </div>
+    <div class="bet-controls">
+      <label>Auto @</label>
+      <input type="number" id="crash-auto" value="" min="1.01" max="1000" step="0.5" placeholder="off">
+      <span class="muted">x</span>
+    </div>
+  </div>
+
+  <div class="stats-row" id="crash-stats">Rounds: 0  |  Wins: 0  |  Won: $0</div>
+
+  <div class="crash-history" id="crash-history"></div>
+
+  <div class="crash-wrap">
+    <canvas id="crash-canvas"></canvas>
+  </div>
+
+  <div class="msg" id="crash-msg">Place a bet and LAUNCH!</div>
+
+  <div class="btn-row">
+    <button class="btn green" id="btn-crash-bet" onclick="crashLaunch()">BET &amp; LAUNCH</button>
+    <button class="btn orange" id="btn-crash-cashout" onclick="crashCashout()" disabled>CASH OUT</button>
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+
+  <div class="slot-paytable">
+    The rocket climbs from 1.00x — cash out before it crashes!<br>
+    Set "Auto @" to cash out automatically at that multiplier.
+  </div>
+</div>
+
 <script src="blackjack.js"></script>
 <script src="slots.js"></script>
 <script src="roulette.js"></script>
+<script src="mines.js"></script>
+<script src="plinko.js"></script>
+<script src="crash.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

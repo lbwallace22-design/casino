@@ -168,8 +168,15 @@ function updateSlotStats() {
     `Spins: ${slotStats.spins}  |  Wins: ${slotStats.wins}  |  Won: $${slotStats.totalWon.toLocaleString()}`;
 }
 
+// Clamped bet read — negative/zero/garbage input falls back to default
+function getSlotBet() {
+  const raw = parseInt(slotEl('slot-bet').value);
+  if (!raw || raw < 1) return SLOT_DEFAULT_BET;
+  return Math.min(raw, 100000);
+}
+
 function updateSlotTotalLabel() {
-  const bet = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const bet = getSlotBet();
   const total = bet * NUM_LINES;
   slotEl('slot-total-label').textContent = `(Total: $${total.toLocaleString()})`;
   slotEl('slot-buy-cost').textContent =
@@ -351,11 +358,17 @@ function evalPayline(syms) {
 function slotSpin() {
   if (slotSpinning || holdWinActive || ladderActive) return;
 
-  const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const betPerLine = getSlotBet();
   const totalBet = betPerLine * NUM_LINES;
   if (totalBet > balance) {
-    setSlotMsg(`Need $${totalBet.toLocaleString()}!`, 'lose');
-    return;
+    checkAutoReset(); // house rule: reset to $5,000 when below $500
+    updateSlotBalance();
+    if (totalBet > balance) {
+      if (autoplayActive) autoplayActive = false;
+      setSlotButtons(true);
+      setSlotMsg(`Need $${totalBet.toLocaleString()}!`, 'lose');
+      return;
+    }
   }
   balance -= totalBet;
   updateSlotBalance();
@@ -388,7 +401,7 @@ function slotMaxSpin() {
 // ─── BUY FEATURES ──────────────────────────────────────────────────
 function slotBuyHoldWin() {
   if (slotSpinning || holdWinActive || ladderActive) return;
-  const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const betPerLine = getSlotBet();
   const cost = betPerLine * NUM_LINES * BUY_HW_MULTIPLIER;
   if (cost > balance) {
     setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
@@ -408,10 +421,14 @@ function slotBuyHoldWin() {
   }
   const coinPositions = positions.slice(0, HOLD_WIN_TRIGGER);
 
-  // Fill grid with BNS at coin positions, random elsewhere
+  // Fill grid with BNS at coin positions; keep stray BNS out of the filler
+  // so the display matches the coins that actually get locked
   for (let r = 0; r < GRID_ROWS; r++)
-    for (let c = 0; c < GRID_COLS; c++)
-      slotGrid[r][c] = randomSymbol(c);
+    for (let c = 0; c < GRID_COLS; c++) {
+      let sym;
+      do { sym = randomSymbol(c); } while (sym === 'BNS');
+      slotGrid[r][c] = sym;
+    }
   for (const [r, c] of coinPositions)
     slotGrid[r][c] = 'BNS';
 
@@ -421,7 +438,7 @@ function slotBuyHoldWin() {
 
 function slotBuyLadder() {
   if (slotSpinning || holdWinActive || ladderActive) return;
-  const betPerLine = parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET;
+  const betPerLine = getSlotBet();
   const cost = betPerLine * NUM_LINES * BUY_LADDER_MULTIPLIER;
   if (cost > balance) {
     setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
@@ -452,10 +469,11 @@ let _lastLocked = 0;
 let _teaseDetected = false;
 let _teaseExtraUsed = 0;
 
-function checkTeaseCondition() {
-  // Check ALL locked columns so far for near-triggers
+function checkTeaseCondition(lockedCols) {
+  // Only check columns the player can already see — no peeking at
+  // reels that are still spinning
   let crowns = 0, coins = 0;
-  for (let col = 0; col < GRID_COLS; col++)
+  for (let col = 0; col < lockedCols; col++)
     for (let row = 0; row < GRID_ROWS; row++) {
       if (slotFinalGrid[row][col] === 'CRN') crowns++;
       if (slotFinalGrid[row][col] === 'BNS') coins++;
@@ -538,7 +556,7 @@ function animateSlotSpin(frame, betPerLine) {
 
       // Check for tease after locking (but before last reel)
       if (locked >= GRID_COLS - 1 && !_teaseDetected && locked < GRID_COLS) {
-        if (checkTeaseCondition()) {
+        if (checkTeaseCondition(locked)) {
           _teaseDetected = true;
           setSlotMsg('...', 'win');
         }
@@ -672,7 +690,7 @@ function resolveSlot(betPerLine) {
     slotStats.totalWon += totalWin;
     setSlotMsg(`WIN! +$${totalWin.toLocaleString()}`, 'win');
     // Shake machine on big wins (10x+ bet)
-    const totalBet = (parseInt(slotEl('slot-bet').value) || SLOT_DEFAULT_BET) * NUM_LINES;
+    const totalBet = getSlotBet() * NUM_LINES;
     if (totalWin >= totalBet * 10) {
       const felt = document.querySelector('.slot-machine-felt');
       felt.classList.add('big-win');
@@ -1045,11 +1063,15 @@ function endLadder() {
 }
 
 // ─── INIT ──────────────────────────────────────────────────────────
+let _slotsListenersBound = false;
 function initSlots() {
   updateSlotBalance();
   updateSlotTotalLabel();
   updateSlotStats();
   renderSlotGrid();
 
-  slotEl('slot-bet').addEventListener('input', updateSlotTotalLabel);
+  if (!_slotsListenersBound) {
+    slotEl('slot-bet').addEventListener('input', updateSlotTotalLabel);
+    _slotsListenersBound = true;
+  }
 }
