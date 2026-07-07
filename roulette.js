@@ -93,9 +93,9 @@ function drawWheel(highlight, ballAngle) {
   // Outer rim
   ctx.beginPath();
   ctx.arc(cx, cy, WHEEL_R, 0, 2 * Math.PI);
-  ctx.fillStyle = '#333';
+  ctx.fillStyle = '#1c1c30';
   ctx.fill();
-  ctx.strokeStyle = '#888';
+  ctx.strokeStyle = 'rgba(255,201,64,0.5)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
@@ -147,9 +147,9 @@ function drawWheel(highlight, ballAngle) {
   const innerR = WHEEL_R - 55;
   ctx.beginPath();
   ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-  ctx.fillStyle = '#2a2a2a';
+  ctx.fillStyle = '#14142a';
   ctx.fill();
-  ctx.strokeStyle = '#666';
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1;
   ctx.stroke();
 

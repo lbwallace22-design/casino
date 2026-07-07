@@ -208,8 +208,8 @@ function renderSlotGrid(highlightCells) {
 
       if (sym && SYM_DISPLAY[sym]) {
         const d = SYM_DISPLAY[sym];
-        cell.style.background = isHL ? d.bg : '#0f1a30';
-        cell.style.borderColor = isHL ? d.border : '#333';
+        cell.style.background = isHL ? d.bg : 'var(--cell-bg)';
+        cell.style.borderColor = isHL ? d.border : 'var(--cell-border)';
         cell.style.borderWidth = isHL ? '2px' : '1px';
 
         const sizeCls = d.big ? ' slot-emoji-big' : d.mid ? ' slot-emoji-mid' : '';
@@ -221,8 +221,8 @@ function renderSlotGrid(highlightCells) {
           cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
         }
       } else {
-        cell.style.background = '#0f1a30';
-        cell.style.borderColor = '#333';
+        cell.style.background = 'var(--cell-bg)';
+        cell.style.borderColor = 'var(--cell-border)';
       }
       container.appendChild(cell);
     }
@@ -249,8 +249,8 @@ function renderHoldWinGrid(animating) {
         const sym = slotGrid[row][col];
         if (sym && SYM_DISPLAY[sym]) {
           const d = SYM_DISPLAY[sym];
-          cell.style.background = '#0f1a30';
-          cell.style.borderColor = '#555';
+          cell.style.background = 'var(--cell-bg)';
+          cell.style.borderColor = 'var(--cell-border-landed)';
           if (d.emoji && !d.label) {
             cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
           } else if (d.emoji) {
@@ -260,8 +260,8 @@ function renderHoldWinGrid(animating) {
           }
         }
       } else {
-        cell.style.background = '#080815';
-        cell.style.borderColor = '#222';
+        cell.style.background = 'var(--bg-deep)';
+        cell.style.borderColor = 'var(--cell-border)';
       }
       container.appendChild(cell);
     }
@@ -522,8 +522,8 @@ function animateSlotSpin(frame, betPerLine) {
           slotGrid[row][col] = sym;
           const cell = document.createElement('div');
           cell.className = 'slot-cell spinning';
-          cell.style.background = '#0f1a30';
-          cell.style.borderColor = '#333';
+          cell.style.background = 'var(--cell-bg)';
+          cell.style.borderColor = 'var(--cell-border)';
           setCellSymbol(cell, sym);
           container.appendChild(cell);
         }
@@ -548,8 +548,8 @@ function animateSlotSpin(frame, betPerLine) {
           const cell = cells[row * GRID_COLS + col];
           setCellSymbol(cell, slotFinalGrid[row][col]);
           cell.className = 'slot-cell landed';
-          cell.style.background = '#0f1a30';
-          cell.style.borderColor = '#4a5580';
+          cell.style.background = 'var(--cell-bg)';
+          cell.style.borderColor = 'var(--cell-border-landed)';
         }
       }
       _lastLocked = locked;
@@ -602,8 +602,8 @@ function animateSlotSpin(frame, betPerLine) {
           const cell = cells[row * GRID_COLS + col];
           setCellSymbol(cell, slotFinalGrid[row][col]);
           cell.className = 'slot-cell landed';
-          cell.style.background = '#0f1a30';
-          cell.style.borderColor = '#4a5580';
+          cell.style.background = 'var(--cell-bg)';
+          cell.style.borderColor = 'var(--cell-border-landed)';
         }
       }
       _lastLocked = GRID_COLS;

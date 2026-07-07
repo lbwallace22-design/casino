@@ -74,8 +74,20 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 3. Commit and push to `master`
 4. GitHub Pages auto-deploys
 
-## Style Notes
-- Dark theme: `#1a1a2e` body, `#0f1a30` slot cells
-- Gold accent: `#f0c040`
+## Style Notes — "Neon Vegas" design system (v17+)
+- All theming is token-driven via CSS variables in `:root` of `style.css` — change tokens, retheme everything
+- Background: cinematic dark gradient `#0a0a18 → #05050e` + fixed ambient neon glow blobs (`body::before`)
+- Brand: primary `#7c3aed` (neon purple), accent `#f43f5e` (rose), gold `#ffc940` (money/balance/wins)
+- Surfaces: glass `rgba(255,255,255,0.04)` with hairline borders; radius 16px; ease `cubic-bezier(0.16,1,0.3,1)`
+- Fonts: Fredoka (display/buttons) + Nunito (body) via Google Fonts `@import`
+- JS inline styles reference tokens: slot cells use `var(--cell-bg)`, `var(--cell-border)`, `var(--cell-border-landed)`
+- `prefers-reduced-motion` respected (kills animations)
 - User prefers modern, cartoony, bouncy animations
 - Mobile-first: designed for iPhone, responsive at 480px breakpoint
+- AVOID: infinite `filter` animations (wedges compositor/screenshots); pure `#000` backgrounds
+
+## Preview Gotchas
+- The service worker serves cache-first: after CSS/JS edits, unregister SW + clear caches in the preview
+  (`navigator.serviceWorker.getRegistrations()` + `caches.keys()`) or the old files keep loading
+- NEVER regex-replace this project's JS with PowerShell `Get-Content`/`Set-Content` — it corrupts the
+  emoji/box-drawing UTF-8 chars. Use the Edit tool.
