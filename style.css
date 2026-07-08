@@ -640,6 +640,49 @@ input { font-family: var(--font-body); }
   line-height: 1.6;
 }
 
+/* ═══ ODDS OVERLAY (slots) ═══ */
+#paytable-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 18, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+#paytable-overlay.hidden { display: none !important; }
+.paytable-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 380px;
+  width: 100%;
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, #0b0b1e 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 20px 16px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: cell-land 0.2s ease-out;
+}
+.paytable-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+  color: var(--slot-accent, var(--gold));
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--slot-accent, var(--gold)) 50%, transparent));
+}
+.paytable-container .slot-paytable {
+  font-size: 0.8rem;
+  opacity: 1;
+  padding: 0;
+}
+
 /* ═══ HOLD & WIN ═══ */
 .hw-coin {
   animation: coin-bounce-in 0.4s ease-out forwards,

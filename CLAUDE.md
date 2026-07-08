@@ -38,7 +38,7 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - **Multiplier Ladder**: 3+ CRN triggers. Pick 1-of-3 tiles to climb. Per-theme levels/scatter pays/buy cost. CRN only spawns on the theme's `ladder.reels` (cols 0, 2, 4).
 - **Tease animations**: 2 crowns or trigger−1 coins → golden pulse + slow last reel + "So close!" msg (only for features the theme has)
 - **Per-machine stats** persisted to localStorage (`casino-slot-stats`), keyed by theme id; shown on lobby cards
-- **Paytable**: generated per theme by `buildPaytableHTML()`
+- **Paytable**: generated per theme by `buildPaytableHTML()`; shown in a modal overlay (`#paytable-overlay`) opened by the 📊 ODDS button, not inline
 - **Animation**: Reels stop left-to-right with bounce/pop CSS. Big win (10x+) shakes machine.
 - **Coin size**: Hold & Win coins use 2.4rem emoji, 0.75rem value text
 

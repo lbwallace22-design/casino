@@ -152,6 +152,7 @@
   <div class="btn-row" id="slot-buy-row">
     <button class="btn purple" id="btn-buy-holdwin" onclick="slotBuyHoldWin()">BUY HOLD&WIN</button>
     <button class="btn teal" id="btn-buy-ladder" onclick="slotBuyLadder()">BUY LADDER</button>
+    <button class="btn dark" id="btn-odds" onclick="toggleSlotPaytable(true)">📊 ODDS</button>
   </div>
 
   <!-- Speed & Autoplay controls -->
@@ -172,8 +173,14 @@
 
   <div class="slot-buy-cost" id="slot-buy-cost">Buy Hold&Win: $10,000  |  Buy Ladder: $5,000</div>
 
-  <!-- Paytable (filled per machine by applySlotTheme) -->
-  <div class="slot-paytable" id="slot-paytable"></div>
+  <!-- Odds overlay (paytable filled per machine by applySlotTheme) -->
+  <div id="paytable-overlay" class="hidden" onclick="toggleSlotPaytable(false)">
+    <div class="paytable-container" onclick="event.stopPropagation()">
+      <div class="paytable-title" id="paytable-title">📊 ODDS &amp; PAYS</div>
+      <div class="slot-paytable" id="slot-paytable"></div>
+      <button class="btn dark" onclick="toggleSlotPaytable(false)">CLOSE</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ ROULETTE ═══ -->

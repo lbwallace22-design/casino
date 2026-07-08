@@ -196,9 +196,14 @@ function backToSlotLobby() {
     return;
   }
   autoplayActive = false;
+  toggleSlotPaytable(false);
   checkAutoReset();
   showScreen('slot-lobby-screen');
   initSlotLobby();
+}
+
+function toggleSlotPaytable(show) {
+  document.getElementById('paytable-overlay').classList.toggle('hidden', !show);
 }
 
 function applySlotTheme() {
@@ -210,9 +215,10 @@ function applySlotTheme() {
   slotEl('btn-buy-ladder').style.display = slotTheme.ladder ? '' : 'none';
   slotEl('btn-buy-holdwin').textContent = slotTheme.holdWin ? `BUY ${slotTheme.holdWin.title}` : '';
   slotEl('btn-buy-ladder').textContent = slotTheme.ladder ? `BUY ${slotTheme.ladder.title}` : '';
-  slotEl('slot-buy-row').style.display = (slotTheme.holdWin || slotTheme.ladder) ? '' : 'none';
   slotEl('slot-buy-cost').style.display = (slotTheme.holdWin || slotTheme.ladder) ? '' : 'none';
+  slotEl('paytable-title').textContent = `${slotTheme.thumb} ${slotTheme.name} — ODDS & PAYS`;
   slotEl('slot-paytable').innerHTML = buildPaytableHTML();
+  toggleSlotPaytable(false);
 }
 
 function buildPaytableHTML() {
