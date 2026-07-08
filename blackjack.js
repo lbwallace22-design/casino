@@ -18,6 +18,16 @@ const SUIT_CLR = { S:'black-card', H:'red-card', D:'red-card', C:'black-card' };
 
 // ─── STATE ─────────────────────────────────────────────────────────
 let balance = STARTING_BALANCE;
+// Restore persisted balance (shared across every game) — values below
+// the auto-reset floor start fresh at $5,000
+try {
+  const saved = parseInt(localStorage.getItem('casino-balance'));
+  if (saved && saved >= 500) balance = saved;
+} catch (e) {}
+
+function saveBalance() {
+  try { localStorage.setItem('casino-balance', String(balance)); } catch (e) {}
+}
 let deck = [];
 let dealerHand = [];
 let hands = [];
@@ -104,6 +114,7 @@ function showScreen(id) {
 function updateBalance() {
   $('bj-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   $('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 function setMsg(text, cls='') {
   const el = $('bj-msg');
@@ -288,8 +299,8 @@ function launchGame(game) {
     updateCountDisplay();
     newShoe();
   } else if (game === 'slots') {
-    showScreen('slots-screen');
-    initSlots();
+    showScreen('slot-lobby-screen');
+    initSlotLobby();
   } else if (game === 'roulette') {
     showScreen('roulette-screen');
     initRoulette();

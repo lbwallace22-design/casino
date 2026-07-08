@@ -153,6 +153,79 @@ input { font-family: var(--font-body); }
 .menu-btn.teal   { --mb-accent: #2dd4bf; }
 .menu-btn.green  { --mb-accent: #34d399; }
 
+/* ═══ SLOT LOBBY ═══ */
+.slot-lobby-cards {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%; max-width: 420px; margin-bottom: 16px;
+}
+.slot-machine-card {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-display);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.25s, border-color 0.25s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.slot-machine-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: var(--mb-accent, var(--primary));
+  box-shadow: 0 0 14px var(--mb-accent, var(--primary));
+}
+.slot-machine-card:active {
+  transform: scale(0.97);
+  border-color: var(--mb-accent, var(--primary));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--mb-accent, var(--primary)) 30%, transparent);
+}
+.smc-thumb {
+  font-size: 2.2rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--mb-accent, var(--primary)) 45%, transparent));
+}
+.smc-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.smc-name {
+  font-weight: 700; font-size: 1rem; letter-spacing: 1.2px;
+  color: var(--mb-accent, var(--text));
+}
+.smc-tagline { font-family: var(--font-body); font-size: 0.8rem; color: var(--text-muted); }
+.smc-meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 0.68rem; letter-spacing: 0.5px; color: var(--text-muted);
+}
+.smc-risk { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.vol-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  display: inline-block;
+}
+.vol-dot.on {
+  background: var(--mb-accent, var(--primary));
+  box-shadow: 0 0 6px var(--mb-accent, var(--primary));
+}
+.smc-feats { font-weight: 600; }
+.smc-stats { font-family: var(--font-body); font-size: 0.7rem; color: var(--text-muted); opacity: 0.8; }
+
+/* Machine name banner on the slots screen */
+.slot-machine-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: 2px;
+  margin: 10px 0 8px;
+  color: var(--slot-accent, var(--gold));
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--slot-accent, var(--gold)) 50%, transparent));
+}
+
 .deposit-row {
   display: flex; align-items: center; gap: 8px;
   margin-top: 26px; flex-wrap: wrap; justify-content: center;

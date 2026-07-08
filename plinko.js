@@ -30,6 +30,7 @@ function plinkoEl(id) { return document.getElementById(id); }
 function updatePlinkoBalance() {
   plinkoEl('plinko-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 
 function setPlinkoMsg(text, cls = '') {

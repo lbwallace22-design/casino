@@ -1,8 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Casino Web App — Slot Machine
+   Casino Web App — Slot Machine Engine
+   Theme-agnostic: all symbols, weights, payouts and bonus features
+   come from the active theme config (see slot-themes.js). One engine,
+   five machines. The slot lobby picks which theme is live.
    ═══════════════════════════════════════════════════════════════════ */
 
-// ─── CONFIG ────────────────────────────────────────────────────────
+// ─── CONFIG (shared by every machine) ─────────────────────────────
 const SLOT_DEFAULT_BET = 10;
 const NUM_LINES = 10;
 const GRID_COLS = 5;
@@ -12,8 +15,7 @@ const SLOT_SPIN_DELAY = 60;
 const SLOT_REEL_STOP_DELAY = 350;
 const SLOT_TEASE_EXTRA_FRAMES = 8;
 const SLOT_TEASE_DELAY = 180;
-const BUY_HW_MULTIPLIER = 100;
-const BUY_LADDER_MULTIPLIER = 50;
+const HOLD_WIN_ANIM_FRAMES = 12;
 
 // Speed presets: multiplier on all delays (lower = faster)
 const SPEED_PRESETS = { slow: 1.5, normal: 1, fast: 0.5, turbo: 0.2 };
@@ -21,36 +23,7 @@ let slotSpeed = 'normal';
 let autoplayActive = false;
 let autoplayCount = 0; // 0 = infinite
 
-const SYMBOLS = ["7","BAR","CHR","BEL","DIA","LEM","ORG","WLD","BNS","CRN"];
-
-// Weighted symbol pools
-const REEL_WEIGHTS = {
-  "7":2,"BAR":4,"CHR":6,"BEL":6,"DIA":5,"LEM":7,"ORG":7,"WLD":2,"BNS":6,"CRN":2
-};
-
-function buildPool(weights) {
-  const pool = [];
-  for (const [sym, w] of Object.entries(weights))
-    for (let i = 0; i < w; i++) pool.push(sym);
-  return pool;
-}
-const REEL_POOL = buildPool(REEL_WEIGHTS);
-
-// Payouts: symbol → {matchCount: multiplier on bet-per-line}
-const PAYOUTS = {
-  "7":   {3:10, 4:50, 5:500},
-  "BAR": {3:5,  4:20, 5:100},
-  "DIA": {3:4,  4:15, 5:75},
-  "BEL": {3:3,  4:10, 5:50},
-  "CHR": {3:2,  4:8,  5:40},
-  "LEM": {3:1,  4:4,  5:20},
-  "ORG": {3:1,  4:4,  5:20},
-};
-
-// Scatter pays for <6 BNS (consolation)
-const SCATTER_PAYS = {3:2, 4:5, 5:15};
-
-// 10 paylines (row, col) left→right
+// 10 paylines (row, col) left→right — shared by every machine
 const PAYLINES = [
   [[1,0],[1,1],[1,2],[1,3],[1,4]],  // L1 middle
   [[0,0],[0,1],[0,2],[0,3],[0,4]],  // L2 top
@@ -64,67 +37,17 @@ const PAYLINES = [
   [[0,0],[1,1],[1,2],[1,3],[0,4]],  // L10 soft V
 ];
 
-const PAYLINE_COLORS = [
-  "#f0c040","#44bbff","#ee2222","#44ee44","#dd66ff",
-  "#ff8833","#33ffcc","#ff66aa","#88ccff","#ccff44",
-];
+// ─── ACTIVE THEME ──────────────────────────────────────────────────
+let slotTheme = SLOT_THEMES[SLOT_THEME_ORDER[0]];
+let slotPool = [];
+let slotLadderReels = new Set();
 
-// Symbol display config
-const SYM_DISPLAY = {
-  "7":   { emoji:"7️⃣",  label:"",      bg:"#3a1515", border:"#ff4444", color:"#ff4444" },
-  "BAR": { emoji:"",     label:"BAR",   bg:"#2a2a2a", border:"#888",    color:"#ccc" },
-  "CHR": { emoji:"🍒",  label:"",      bg:"#2a1520", border:"#cc0000", color:"#cc0000" },
-  "BEL": { emoji:"🔔",  label:"",      bg:"#2a2515", border:"#f0c040", color:"#f0c040" },
-  "DIA": { emoji:"💎",  label:"",      bg:"#152535", border:"#44bbff", color:"#44bbff" },
-  "LEM": { emoji:"🍋",  label:"",      bg:"#2a2a15", border:"#ddee22", color:"#ddee22" },
-  "ORG": { emoji:"🍊",  label:"",      bg:"#2a2015", border:"#ff8833", color:"#ff8833" },
-  "WLD": { emoji:"⭐",  label:"WILD",  bg:"#2a1a00", border:"#ff6600", color:"#ff6600", mid:true },
-  "BNS": { emoji:"💰",  label:"",      bg:"#2a2200", border:"#f0c040", color:"#f0c040", big:true },
-  "CRN": { emoji:"👑",  label:"",      bg:"#2a1a2a", border:"#ff44ff", color:"#ff44ff", big:true },
-};
-
-// ─── HOLD & WIN CONFIG ────────────────────────────────────────────
-const HOLD_WIN_TRIGGER = 6;
-const HOLD_WIN_SPINS = 3;
-const HOLD_WIN_COIN_CHANCE = 0.22;
-const HOLD_WIN_ANIM_FRAMES = 12;
-const HOLD_WIN_GRAND_BONUS = 500;
-
-const COIN_VALUE_POOL = [
-  {value: 1, weight: 25},
-  {value: 2, weight: 20},
-  {value: 3, weight: 15},
-  {value: 5, weight: 12},
-  {value: 10, weight: 8},
-  {value: 25, weight: 5},
-  {value: 50, weight: 3},
-  {value: 100, weight: 2},
-  {value: 250, weight: 1},
-];
-const COIN_VALUE_TOTAL_WEIGHT = COIN_VALUE_POOL.reduce((s, c) => s + c.weight, 0);
-
-function randomCoinValue() {
-  let r = Math.random() * COIN_VALUE_TOTAL_WEIGHT;
-  for (const c of COIN_VALUE_POOL) {
-    r -= c.weight;
-    if (r <= 0) return c.value;
-  }
-  return 1;
+function buildPool(weights) {
+  const pool = [];
+  for (const [sym, w] of Object.entries(weights))
+    for (let i = 0; i < w; i++) pool.push(sym);
+  return pool;
 }
-
-// ─── MULTIPLIER LADDER CONFIG ─────────────────────────────────────
-const LADDER_LEVELS = [
-  { mult: 2,    safe: 3 },
-  { mult: 5,    safe: 2 },
-  { mult: 10,   safe: 2 },
-  { mult: 25,   safe: 2 },
-  { mult: 50,   safe: 1 },
-  { mult: 100,  safe: 1 },
-  { mult: 250,  safe: 1 },
-  { mult: 500,  safe: 1 },
-  { mult: 1000, safe: 0 },
-];
-const CROWN_SCATTER_PAYS = {3:3, 4:10, 5:50};
 
 // ─── STATE ─────────────────────────────────────────────────────────
 let slotGrid = Array.from({length: GRID_ROWS}, () => Array(GRID_COLS).fill(""));
@@ -143,7 +66,21 @@ let ladderLevel = 0;
 let ladderBet = 0;
 let ladderBasePay = 0;
 
-let slotStats = { spins:0, wins:0, totalWon:0 };
+// Per-machine stats, persisted to localStorage
+let slotStatsAll = {};
+try {
+  slotStatsAll = JSON.parse(localStorage.getItem('casino-slot-stats')) || {};
+} catch (e) { slotStatsAll = {}; }
+
+function slotStatsFor(id) {
+  if (!slotStatsAll[id]) slotStatsAll[id] = { spins:0, wins:0, totalWon:0 };
+  return slotStatsAll[id];
+}
+let slotStats = slotStatsFor(slotTheme.id);
+
+function saveSlotStats() {
+  try { localStorage.setItem('casino-slot-stats', JSON.stringify(slotStatsAll)); } catch (e) {}
+}
 
 // ─── DOM HELPERS ───────────────────────────────────────────────────
 function slotEl(id) { return document.getElementById(id); }
@@ -151,6 +88,7 @@ function slotEl(id) { return document.getElementById(id); }
 function updateSlotBalance() {
   slotEl('slot-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 
 function setSlotMsg(text, cls='') {
@@ -166,6 +104,7 @@ function setSlotDetail(text) {
 function updateSlotStats() {
   slotEl('slot-stats').textContent =
     `Spins: ${slotStats.spins}  |  Wins: ${slotStats.wins}  |  Won: $${slotStats.totalWon.toLocaleString()}`;
+  saveSlotStats();
 }
 
 // Clamped bet read — negative/zero/garbage input falls back to default
@@ -179,19 +118,123 @@ function updateSlotTotalLabel() {
   const bet = getSlotBet();
   const total = bet * NUM_LINES;
   slotEl('slot-total-label').textContent = `(Total: $${total.toLocaleString()})`;
-  slotEl('slot-buy-cost').textContent =
-    `Buy Hold&Win: $${(total * BUY_HW_MULTIPLIER).toLocaleString()}  |  Buy Ladder: $${(total * BUY_LADDER_MULTIPLIER).toLocaleString()}`;
+  const costs = [];
+  if (slotTheme.holdWin)
+    costs.push(`Buy ${slotTheme.holdWin.title}: $${(total * slotTheme.holdWin.buyMult).toLocaleString()}`);
+  if (slotTheme.ladder)
+    costs.push(`Buy ${slotTheme.ladder.title}: $${(total * slotTheme.ladder.buyMult).toLocaleString()}`);
+  slotEl('slot-buy-cost').textContent = costs.join('  |  ');
 }
-
-// CRN only appears on reels 1, 3, 5 (cols 0, 2, 4)
-const CROWN_REELS = new Set([0, 2, 4]);
 
 function randomSymbol(col) {
   let sym;
   do {
-    sym = REEL_POOL[Math.floor(Math.random() * REEL_POOL.length)];
-  } while (sym === 'CRN' && col !== undefined && !CROWN_REELS.has(col));
+    sym = slotPool[Math.floor(Math.random() * slotPool.length)];
+  } while (sym === 'CRN' && col !== undefined && !slotLadderReels.has(col));
   return sym;
+}
+
+function randomCoinValue() {
+  const pool = slotTheme.holdWin.coinPool;
+  const totalWeight = pool.reduce((s, c) => s + c.weight, 0);
+  let r = Math.random() * totalWeight;
+  for (const c of pool) {
+    r -= c.weight;
+    if (r <= 0) return c.value;
+  }
+  return 1;
+}
+
+// ─── SLOT LOBBY ────────────────────────────────────────────────────
+function initSlotLobby() {
+  document.getElementById('lobby-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  const wrap = document.getElementById('slot-lobby-cards');
+  wrap.innerHTML = '';
+  for (const id of SLOT_THEME_ORDER) {
+    const t = SLOT_THEMES[id];
+    const st = slotStatsFor(id);
+    const feats = [];
+    if (t.holdWin) feats.push(`${t.holdWin.emoji} ${t.holdWin.title}`);
+    if (t.ladder) feats.push(`${t.ladder.emoji} ${t.ladder.title}`);
+    if (!feats.length) feats.push('✨ PURE REELS');
+    let dots = '';
+    for (let i = 1; i <= 4; i++)
+      dots += `<span class="vol-dot${i <= t.volatility ? ' on' : ''}"></span>`;
+    const card = document.createElement('button');
+    card.className = 'slot-machine-card';
+    card.style.setProperty('--mb-accent', t.accent);
+    card.onclick = () => launchSlotMachine(id);
+    card.innerHTML = `
+      <span class="smc-thumb">${t.thumb}</span>
+      <span class="smc-info">
+        <span class="smc-name">${t.name}</span>
+        <span class="smc-tagline">${t.tagline}</span>
+        <span class="smc-meta">
+          <span class="smc-risk">RISK ${dots}</span>
+          <span class="smc-feats">${feats.join(' · ')}</span>
+        </span>
+        <span class="smc-stats">Spins: ${st.spins.toLocaleString()} · Won: $${st.totalWon.toLocaleString()}</span>
+      </span>`;
+    wrap.appendChild(card);
+  }
+}
+
+function launchSlotMachine(id) {
+  slotTheme = SLOT_THEMES[id];
+  slotPool = buildPool(slotTheme.weights);
+  slotLadderReels = new Set(slotTheme.ladder ? slotTheme.ladder.reels : []);
+  slotStats = slotStatsFor(id);
+  slotGrid = Array.from({length: GRID_ROWS}, () => Array(GRID_COLS).fill(""));
+  applySlotTheme();
+  showScreen('slots-screen');
+  initSlots();
+}
+
+function backToSlotLobby() {
+  if (slotSpinning || holdWinActive || ladderActive) {
+    setSlotMsg('Finish the round first!');
+    return;
+  }
+  autoplayActive = false;
+  checkAutoReset();
+  showScreen('slot-lobby-screen');
+  initSlotLobby();
+}
+
+function applySlotTheme() {
+  const screen = document.getElementById('slots-screen');
+  screen.style.setProperty('--slot-accent', slotTheme.accent);
+  const nameEl = slotEl('slot-machine-name');
+  nameEl.textContent = `${slotTheme.thumb} ${slotTheme.name}`;
+  slotEl('btn-buy-holdwin').style.display = slotTheme.holdWin ? '' : 'none';
+  slotEl('btn-buy-ladder').style.display = slotTheme.ladder ? '' : 'none';
+  slotEl('btn-buy-holdwin').textContent = slotTheme.holdWin ? `BUY ${slotTheme.holdWin.title}` : '';
+  slotEl('btn-buy-ladder').textContent = slotTheme.ladder ? `BUY ${slotTheme.ladder.title}` : '';
+  slotEl('slot-buy-row').style.display = (slotTheme.holdWin || slotTheme.ladder) ? '' : 'none';
+  slotEl('slot-buy-cost').style.display = (slotTheme.holdWin || slotTheme.ladder) ? '' : 'none';
+  slotEl('slot-paytable').innerHTML = buildPaytableHTML();
+}
+
+function buildPaytableHTML() {
+  const t = slotTheme;
+  // Symbols sorted by 5-of-a-kind payout, best first
+  const syms = Object.keys(t.payouts).sort((a, b) => t.payouts[b][5] - t.payouts[a][5]);
+  const parts = syms.map(s => {
+    const d = t.display[s];
+    const icon = d.emoji || d.label;
+    const p = t.payouts[s];
+    return `${icon} ${p[5]}x/${p[4]}x/${p[3]}x`;
+  });
+  const lines = [];
+  for (let i = 0; i < parts.length; i += 3)
+    lines.push(parts.slice(i, i + 3).join('  |  '));
+  let html = `<b>5/4/3 of a kind pays:</b><br>${lines.join('<br>')}<br>`;
+  const wd = t.display['WLD'];
+  html += `${wd.emoji} WILD subs all symbols`;
+  if (t.holdWin) html += `  |  ${t.holdWin.emoji}×${t.holdWin.trigger}+ = ${t.holdWin.title}`;
+  if (t.ladder) html += `  |  ${t.ladder.emoji}×3+ = ${t.ladder.title} (up to ${t.ladder.levels[t.ladder.levels.length-1].mult}x!)`;
+  html += `  |  ${NUM_LINES} lines`;
+  return html;
 }
 
 // ─── RENDER GRID ───────────────────────────────────────────────────
@@ -206,8 +249,8 @@ function renderSlotGrid(highlightCells) {
 
       const isHL = highlightCells && highlightCells.has(`${row},${col}`);
 
-      if (sym && SYM_DISPLAY[sym]) {
-        const d = SYM_DISPLAY[sym];
+      if (sym && slotTheme.display[sym]) {
+        const d = slotTheme.display[sym];
         cell.style.background = isHL ? d.bg : 'var(--cell-bg)';
         cell.style.borderColor = isHL ? d.border : 'var(--cell-border)';
         cell.style.borderWidth = isHL ? '2px' : '1px';
@@ -231,6 +274,7 @@ function renderSlotGrid(highlightCells) {
 
 function renderHoldWinGrid(animating) {
   const container = slotEl('slot-grid');
+  const hw = slotTheme.holdWin;
   container.innerHTML = '';
   for (let row = 0; row < GRID_ROWS; row++) {
     for (let col = 0; col < GRID_COLS; col++) {
@@ -240,20 +284,18 @@ function renderHoldWinGrid(animating) {
       const coinVal = holdWinCoins[row][col];
 
       if (coinVal !== null) {
-        cell.style.background = '#2a2200';
-        cell.style.borderColor = '#f0c040';
+        cell.style.background = hw.coinBg;
+        cell.style.borderColor = hw.coinBorder;
         cell.style.borderWidth = '2px';
         cell.classList.add('hw-coin');
-        cell.innerHTML = `<span class="slot-emoji">💰</span><span class="coin-value">${coinVal}x</span>`;
+        cell.innerHTML = `<span class="slot-emoji">${hw.emoji}</span><span class="coin-value">${coinVal}x</span>`;
       } else if (animating) {
         const sym = slotGrid[row][col];
-        if (sym && SYM_DISPLAY[sym]) {
-          const d = SYM_DISPLAY[sym];
+        if (sym && slotTheme.display[sym]) {
+          const d = slotTheme.display[sym];
           cell.style.background = 'var(--cell-bg)';
           cell.style.borderColor = 'var(--cell-border-landed)';
-          if (d.emoji && !d.label) {
-            cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
-          } else if (d.emoji) {
+          if (d.emoji) {
             cell.innerHTML = `<span class="slot-emoji">${d.emoji}</span>`;
           } else {
             cell.innerHTML = `<span class="slot-text" style="color:${d.color}">${d.label}</span>`;
@@ -325,7 +367,7 @@ function autoplayNext() {
 
 function setSlotSpeed(speed) {
   slotSpeed = speed;
-  document.querySelectorAll('.speed-btn').forEach(b => {
+  document.querySelectorAll('.speed-btn[data-speed]').forEach(b => {
     b.classList.toggle('speed-active', b.dataset.speed === speed);
   });
 }
@@ -340,7 +382,9 @@ function evalPayline(syms) {
     break;
   }
   if (base === null) {
-    return [5, '7', PAYOUTS['7'][5]];
+    // Full line of wilds pays as the theme's top symbol
+    const top = slotTheme.wildTopSym;
+    return [5, top, slotTheme.payouts[top][5]];
   }
   let count = 0;
   for (const s of syms) {
@@ -348,7 +392,7 @@ function evalPayline(syms) {
     else break;
   }
   if (count >= 3) {
-    const mult = (PAYOUTS[base] || {})[count] || 0;
+    const mult = (slotTheme.payouts[base] || {})[count] || 0;
     return [count, base, mult];
   }
   return [0, null, 0];
@@ -400,9 +444,10 @@ function slotMaxSpin() {
 
 // ─── BUY FEATURES ──────────────────────────────────────────────────
 function slotBuyHoldWin() {
-  if (slotSpinning || holdWinActive || ladderActive) return;
+  if (slotSpinning || holdWinActive || ladderActive || !slotTheme.holdWin) return;
+  const hw = slotTheme.holdWin;
   const betPerLine = getSlotBet();
-  const cost = betPerLine * NUM_LINES * BUY_HW_MULTIPLIER;
+  const cost = betPerLine * NUM_LINES * hw.buyMult;
   if (cost > balance) {
     setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
     return;
@@ -410,7 +455,7 @@ function slotBuyHoldWin() {
   balance -= cost;
   updateSlotBalance();
 
-  // Place 6 random coins on the grid
+  // Place trigger-count random coins on the grid
   const positions = [];
   for (let r = 0; r < GRID_ROWS; r++)
     for (let c = 0; c < GRID_COLS; c++)
@@ -419,7 +464,7 @@ function slotBuyHoldWin() {
     const j = Math.floor(Math.random() * (i + 1));
     [positions[i], positions[j]] = [positions[j], positions[i]];
   }
-  const coinPositions = positions.slice(0, HOLD_WIN_TRIGGER);
+  const coinPositions = positions.slice(0, hw.trigger);
 
   // Fill grid with BNS at coin positions; keep stray BNS out of the filler
   // so the display matches the coins that actually get locked
@@ -437,9 +482,9 @@ function slotBuyHoldWin() {
 }
 
 function slotBuyLadder() {
-  if (slotSpinning || holdWinActive || ladderActive) return;
+  if (slotSpinning || holdWinActive || ladderActive || !slotTheme.ladder) return;
   const betPerLine = getSlotBet();
-  const cost = betPerLine * NUM_LINES * BUY_LADDER_MULTIPLIER;
+  const cost = betPerLine * NUM_LINES * slotTheme.ladder.buyMult;
   if (cost > balance) {
     setSlotMsg(`Need $${cost.toLocaleString()} to buy!`, 'lose');
     return;
@@ -452,8 +497,8 @@ function slotBuyLadder() {
 // ─── ANIMATION ─────────────────────────────────────────────────────
 // Helper: set a single cell's content without recreating it
 function setCellSymbol(cell, sym) {
-  if (sym && SYM_DISPLAY[sym]) {
-    const d = SYM_DISPLAY[sym];
+  if (sym && slotTheme.display[sym]) {
+    const d = slotTheme.display[sym];
     const sizeCls = d.big ? ' slot-emoji-big' : d.mid ? ' slot-emoji-mid' : '';
     if (d.emoji && !d.label) {
       cell.innerHTML = `<span class="slot-emoji${sizeCls}">${d.emoji}</span>`;
@@ -469,7 +514,7 @@ let _lastLocked = 0;
 let _teaseDetected = false;
 let _teaseExtraUsed = 0;
 
-function checkTeaseCondition(lockedCols) {
+function countTeaseSymbols(lockedCols) {
   // Only check columns the player can already see — no peeking at
   // reels that are still spinning
   let crowns = 0, coins = 0;
@@ -478,12 +523,17 @@ function checkTeaseCondition(lockedCols) {
       if (slotFinalGrid[row][col] === 'CRN') crowns++;
       if (slotFinalGrid[row][col] === 'BNS') coins++;
     }
-  return (crowns >= 2) || (coins >= HOLD_WIN_TRIGGER - 1);
+  return { crowns, coins };
+}
+
+function checkTeaseCondition(lockedCols) {
+  const { crowns, coins } = countTeaseSymbols(lockedCols);
+  return (slotTheme.ladder && crowns >= 2) ||
+         (slotTheme.holdWin && coins >= slotTheme.holdWin.trigger - 1);
 }
 
 function animateSlotSpin(frame, betPerLine) {
   const sm = getSpeedMult();
-  const totalBase = SLOT_SPIN_FRAMES + GRID_COLS;
   const container = slotEl('slot-grid');
 
   // Calculate how many columns should be locked at this frame
@@ -506,7 +556,6 @@ function animateSlotSpin(frame, betPerLine) {
     }
   }
 
-  const totalAnim = totalBase + (_teaseDetected ? SLOT_TEASE_EXTRA_FRAMES : 0);
   const isDone = locked >= GRID_COLS;
 
   if (!isDone) {
@@ -564,18 +613,10 @@ function animateSlotSpin(frame, betPerLine) {
     }
 
     // Apply tease glow to spinning cells
-    if (locked > 0 && locked < GRID_COLS) {
-      let lockedCrowns = 0, lockedCoins = 0;
-      for (let col = 0; col < locked; col++)
-        for (let row = 0; row < GRID_ROWS; row++) {
-          if (slotFinalGrid[row][col] === 'CRN') lockedCrowns++;
-          if (slotFinalGrid[row][col] === 'BNS') lockedCoins++;
-        }
-      if (lockedCrowns >= 2 || lockedCoins >= HOLD_WIN_TRIGGER - 1) {
-        for (let col = locked; col < GRID_COLS; col++)
-          for (let row = 0; row < GRID_ROWS; row++)
-            cells[row * GRID_COLS + col].classList.add('tease');
-      }
+    if (locked > 0 && locked < GRID_COLS && checkTeaseCondition(locked)) {
+      for (let col = locked; col < GRID_COLS; col++)
+        for (let row = 0; row < GRID_ROWS; row++)
+          cells[row * GRID_COLS + col].classList.add('tease');
     }
 
     // Calculate delay
@@ -620,6 +661,8 @@ function resolveSlot(betPerLine) {
   let totalWin = 0;
   const details = [];
   const winningCells = new Set();
+  const hw = slotTheme.holdWin;
+  const ld = slotTheme.ladder;
 
   // Payline wins
   for (let li = 0; li < PAYLINES.length; li++) {
@@ -636,34 +679,34 @@ function resolveSlot(betPerLine) {
     }
   }
 
-  // BNS (coin) scatter count
+  // BNS (coin) scatter count — only meaningful when the theme has Hold & Win
   const bnsCells = [];
   for (let r = 0; r < GRID_ROWS; r++)
     for (let c = 0; c < GRID_COLS; c++)
       if (slotGrid[r][c] === 'BNS') bnsCells.push([r,c]);
   const bnsCount = bnsCells.length;
 
-  // Small scatter pay for 3-5 BNS (consolation, no bonus trigger)
-  if (bnsCount >= 3 && bnsCount < HOLD_WIN_TRIGGER) {
-    const scMult = SCATTER_PAYS[Math.min(bnsCount, 5)] || SCATTER_PAYS[5];
+  // Small scatter pay for 3..trigger-1 BNS (consolation, no bonus trigger)
+  if (hw && bnsCount >= 3 && bnsCount < hw.trigger) {
+    const scMult = hw.scatterPays[Math.min(bnsCount, 5)] || hw.scatterPays[5];
     const scatterPay = scMult * betPerLine * NUM_LINES;
     totalWin += scatterPay;
     details.push(`SCATTER ${bnsCount}x +$${scatterPay.toLocaleString()}`);
     for (const [r,c] of bnsCells) winningCells.add(`${r},${c}`);
   }
 
-  // Crown scatter count
+  // Crown (ladder scatter) count — only when the theme has a ladder
   const crownCells = [];
   for (let r = 0; r < GRID_ROWS; r++)
     for (let c = 0; c < GRID_COLS; c++)
       if (slotGrid[r][c] === 'CRN') crownCells.push([r,c]);
   const crownCount = crownCells.length;
 
-  if (crownCount >= 3) {
-    const cMult = CROWN_SCATTER_PAYS[Math.min(crownCount, 5)] || CROWN_SCATTER_PAYS[5];
+  if (ld && crownCount >= 3) {
+    const cMult = ld.scatterPays[Math.min(crownCount, 5)] || ld.scatterPays[5];
     const crownPay = cMult * betPerLine * NUM_LINES;
     totalWin += crownPay;
-    details.push(`👑 CROWN ${crownCount}x +$${crownPay.toLocaleString()}`);
+    details.push(`${ld.emoji} ${crownCount}x +$${crownPay.toLocaleString()}`);
     for (const [r,c] of crownCells) winningCells.add(`${r},${c}`);
   }
 
@@ -696,7 +739,7 @@ function resolveSlot(betPerLine) {
       felt.classList.add('big-win');
       setTimeout(() => felt.classList.remove('big-win'), 1200);
     }
-  } else if (crownCount === 2 || bnsCount === HOLD_WIN_TRIGGER - 1) {
+  } else if ((ld && crownCount === 2) || (hw && bnsCount === hw.trigger - 1)) {
     setSlotMsg('So close! Spin again!', 'win');
   } else {
     setSlotMsg('No win — try again!');
@@ -708,11 +751,11 @@ function resolveSlot(betPerLine) {
 
   // ── Bonus triggers ──
   let pendingLadder = null;
-  if (crownCount >= 3) {
+  if (ld && crownCount >= 3) {
     pendingLadder = { betPerLine };
   }
 
-  if (bnsCount >= HOLD_WIN_TRIGGER) {
+  if (hw && bnsCount >= hw.trigger) {
     for (const [r,c] of bnsCells) winningCells.add(`${r},${c}`);
     renderSlotGrid(winningCells);
     if (pendingLadder) window._pendingLadder = pendingLadder;
@@ -737,8 +780,9 @@ function resolveSlot(betPerLine) {
 
 // ─── HOLD & WIN BONUS ──────────────────────────────────────────────
 function startHoldWin(coinPositions, betPerLine) {
+  const hw = slotTheme.holdWin;
   holdWinActive = true;
-  holdWinSpinsLeft = HOLD_WIN_SPINS;
+  holdWinSpinsLeft = hw.spins;
   holdWinBet = betPerLine;
   holdWinCoins = Array.from({length: GRID_ROWS}, () => Array(GRID_COLS).fill(null));
 
@@ -752,7 +796,7 @@ function startHoldWin(coinPositions, betPerLine) {
   updateHoldWinBar();
 
   renderHoldWinGrid(false);
-  setSlotMsg(`💰 HOLD & WIN! ${coinPositions.length} coins locked!`, 'win');
+  setSlotMsg(`${hw.emoji} ${hw.title}! ${coinPositions.length} coins locked!`, 'win');
 
   setTimeout(runHoldWinSpin, 2000);
 }
@@ -761,7 +805,7 @@ function updateHoldWinBar() {
   const totalVal = sumHoldWinCoins();
   const totalPay = totalVal * holdWinBet * NUM_LINES;
   slotEl('slot-bonus-bar').textContent =
-    `HOLD & WIN — ${holdWinSpinsLeft} spin${holdWinSpinsLeft !== 1 ? 's' : ''} left  |  Total: $${totalPay.toLocaleString()}`;
+    `${slotTheme.holdWin.title} — ${holdWinSpinsLeft} spin${holdWinSpinsLeft !== 1 ? 's' : ''} left  |  Total: $${totalPay.toLocaleString()}`;
 }
 
 function sumHoldWinCoins() {
@@ -802,12 +846,13 @@ function animateHoldWinSpin(frame) {
 }
 
 function resolveHoldWinSpin() {
+  const hw = slotTheme.holdWin;
   let newCoins = 0;
 
   for (let r = 0; r < GRID_ROWS; r++) {
     for (let c = 0; c < GRID_COLS; c++) {
       if (holdWinCoins[r][c] === null) {
-        if (Math.random() < HOLD_WIN_COIN_CHANCE) {
+        if (Math.random() < hw.coinChance) {
           holdWinCoins[r][c] = randomCoinValue();
           newCoins++;
         }
@@ -818,8 +863,8 @@ function resolveHoldWinSpin() {
   renderHoldWinGrid(false);
 
   if (newCoins > 0) {
-    holdWinSpinsLeft = HOLD_WIN_SPINS;
-    setSlotMsg(`+${newCoins} new coin${newCoins > 1 ? 's' : ''}! Spins reset to ${HOLD_WIN_SPINS}!`, 'win');
+    holdWinSpinsLeft = hw.spins;
+    setSlotMsg(`+${newCoins} new coin${newCoins > 1 ? 's' : ''}! Spins reset to ${hw.spins}!`, 'win');
   } else {
     if (holdWinSpinsLeft > 0) {
       setSlotMsg(`No new coins — ${holdWinSpinsLeft} spin${holdWinSpinsLeft !== 1 ? 's' : ''} left`);
@@ -845,12 +890,13 @@ function resolveHoldWinSpin() {
 }
 
 function endHoldWin() {
+  const hw = slotTheme.holdWin;
   holdWinActive = false;
   slotEl('slot-bonus-bar').classList.add('hidden');
 
   let totalMult = sumHoldWinCoins();
   const isFull = countHoldWinCoins() >= GRID_ROWS * GRID_COLS;
-  if (isFull) totalMult += HOLD_WIN_GRAND_BONUS;
+  if (isFull) totalMult += hw.grand;
 
   const payout = totalMult * holdWinBet * NUM_LINES;
 
@@ -861,7 +907,7 @@ function endHoldWin() {
   updateSlotStats();
 
   const grandText = isFull ? ' + GRAND BONUS!' : '';
-  setSlotMsg(`💰 HOLD & WIN: +$${payout.toLocaleString()}${grandText}`, 'win');
+  setSlotMsg(`${hw.emoji} ${hw.title}: +$${payout.toLocaleString()}${grandText}`, 'win');
 
   // Restore normal grid display
   renderSlotGrid();
@@ -892,7 +938,8 @@ function startLadder(betPerLine) {
 
   setSlotButtons(false);
   showLadderOverlay();
-  setSlotMsg('👑 MULTIPLIER LADDER! Pick a tile to climb!', 'win');
+  const ld = slotTheme.ladder;
+  setSlotMsg(`${ld.emoji} ${ld.title}! Pick a tile to climb!`, 'win');
 }
 
 function showLadderOverlay() {
@@ -908,14 +955,16 @@ function showLadderOverlay() {
 
 function renderLadder() {
   const overlay = document.getElementById('ladder-overlay');
-  const level = LADDER_LEVELS[ladderLevel];
+  const ld = slotTheme.ladder;
+  const levels = ld.levels;
+  const level = levels[ladderLevel];
 
   let html = '<div class="ladder-container">';
-  html += '<div class="ladder-title">👑 MULTIPLIER LADDER 👑</div>';
+  html += `<div class="ladder-title">${ld.emoji} ${ld.title} ${ld.emoji}</div>`;
 
   html += '<div class="ladder-rungs">';
-  for (let i = LADDER_LEVELS.length - 1; i >= 0; i--) {
-    const lvl = LADDER_LEVELS[i];
+  for (let i = levels.length - 1; i >= 0; i--) {
+    const lvl = levels[i];
     const isCurrent = i === ladderLevel;
     const isPast = i < ladderLevel;
     const cls = isCurrent ? 'ladder-rung current' : isPast ? 'ladder-rung past' : 'ladder-rung';
@@ -929,13 +978,13 @@ function renderLadder() {
   html += '</div>';
 
   if (ladderLevel > 0) {
-    const prevMult = LADDER_LEVELS[ladderLevel - 1].mult;
+    const prevMult = levels[ladderLevel - 1].mult;
     const collectPay = prevMult * ladderBasePay;
     html += `<div class="ladder-collect-info">Collect if wrong: $${collectPay.toLocaleString()} (${prevMult}x)</div>`;
   }
 
-  if (ladderLevel >= LADDER_LEVELS.length - 1) {
-    const topPay = LADDER_LEVELS[LADDER_LEVELS.length - 1].mult * ladderBasePay;
+  if (ladderLevel >= levels.length - 1) {
+    const topPay = levels[levels.length - 1].mult * ladderBasePay;
     html += `<div class="ladder-msg gold">🏆 MAX LEVEL! Collecting $${topPay.toLocaleString()}!</div>`;
     html += '</div>';
     overlay.innerHTML = html;
@@ -964,7 +1013,7 @@ function renderLadder() {
   html += '</div>';
 
   if (ladderLevel > 0) {
-    const collectPay = LADDER_LEVELS[ladderLevel - 1].mult * ladderBasePay;
+    const collectPay = levels[ladderLevel - 1].mult * ladderBasePay;
     html += `<button class="btn green ladder-collect-btn" onclick="collectLadder()">
       COLLECT $${collectPay.toLocaleString()}
     </button>`;
@@ -978,6 +1027,7 @@ function pickLadderTile(index) {
   const tiles = window._ladderTiles;
   if (!tiles || !ladderActive) return;
 
+  const levels = slotTheme.ladder.levels;
   const result = tiles[index];
   const tileButtons = document.querySelectorAll('.ladder-tile');
 
@@ -1000,13 +1050,13 @@ function pickLadderTile(index) {
 
   if (result === 'UP') {
     ladderLevel++;
-    const newMult = LADDER_LEVELS[ladderLevel].mult;
+    const newMult = levels[ladderLevel].mult;
     const newPay = newMult * ladderBasePay;
     setSlotMsg(`⬆️ CLIMBED to ${newMult}x — $${newPay.toLocaleString()}!`, 'win');
     setTimeout(renderLadder, 1500);
   } else {
     if (ladderLevel > 0) {
-      const prevMult = LADDER_LEVELS[ladderLevel - 1].mult;
+      const prevMult = levels[ladderLevel - 1].mult;
       const pay = prevMult * ladderBasePay;
       setSlotMsg(`💀 Stopped! Collecting ${prevMult}x — $${pay.toLocaleString()}`, 'lose');
       ladderLevel = ladderLevel - 1;
@@ -1021,7 +1071,7 @@ function pickLadderTile(index) {
 function collectLadder() {
   if (!ladderActive || ladderLevel <= 0) return;
   ladderLevel = ladderLevel - 1;
-  const mult = LADDER_LEVELS[ladderLevel].mult;
+  const mult = slotTheme.ladder.levels[ladderLevel].mult;
   const pay = mult * ladderBasePay;
   setSlotMsg(`Collected ${mult}x — $${pay.toLocaleString()}!`, 'win');
   setTimeout(endLadder, 1500);
@@ -1032,9 +1082,10 @@ function endLadder() {
   const overlay = document.getElementById('ladder-overlay');
   if (overlay) overlay.classList.add('hidden');
 
+  const ld = slotTheme.ladder;
   let payout = 0;
-  if (ladderLevel >= 0 && ladderLevel < LADDER_LEVELS.length) {
-    payout = LADDER_LEVELS[ladderLevel].mult * ladderBasePay;
+  if (ladderLevel >= 0 && ladderLevel < ld.levels.length) {
+    payout = ld.levels[ladderLevel].mult * ladderBasePay;
   }
 
   if (payout > 0) {
@@ -1043,12 +1094,7 @@ function endLadder() {
     slotStats.totalWon += payout;
     updateSlotBalance();
     updateSlotStats();
-    setSlotMsg(`👑 LADDER BONUS: +$${payout.toLocaleString()}!`, 'win');
-  }
-
-  // Check for pending hold & win (shouldn't happen but just in case)
-  if (window._pendingFreeSpins) {
-    window._pendingFreeSpins = null;
+    setSlotMsg(`${ld.emoji} LADDER BONUS: +$${payout.toLocaleString()}!`, 'win');
   }
 
   if (balance < NUM_LINES) {
@@ -1068,7 +1114,10 @@ function initSlots() {
   updateSlotBalance();
   updateSlotTotalLabel();
   updateSlotStats();
+  setSlotMsg('Press SPIN to play!');
+  setSlotDetail('');
   renderSlotGrid();
+  setSlotButtons(true);
 
   if (!_slotsListenersBound) {
     slotEl('slot-bet').addEventListener('input', updateSlotTotalLabel);
