@@ -29,6 +29,7 @@ function crashEl(id) { return document.getElementById(id); }
 function updateCrashBalance() {
   crashEl('crash-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 
 function setCrashMsg(text, cls = '') {

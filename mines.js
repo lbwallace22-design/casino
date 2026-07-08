@@ -23,6 +23,7 @@ function minesEl(id) { return document.getElementById(id); }
 function updateMinesBalance() {
   minesEl('mines-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 
 function setMinesMsg(text, cls = '') {

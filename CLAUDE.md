@@ -8,10 +8,11 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 ## Files
 | File | Purpose |
 |------|---------|
-| `index.html` | Single-page shell: menu + 6 game screens (blackjack, slots, roulette, mines, plinko, crash) |
-| `style.css` | All styling including card, slot, roulette, ladder overlay, mines/plinko/crash, responsive |
-| `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display. Also holds shared state (`balance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
-| `slots.js` | Slot machine: 5×3 grid, 10 paylines, Hold & Win bonus, Multiplier Ladder bonus, buy features, autoplay, speed presets |
+| `index.html` | Single-page shell: menu + slot lobby + game screens (blackjack, slots, roulette, mines, plinko, crash) |
+| `style.css` | All styling including card, slot, slot lobby, roulette, ladder overlay, mines/plinko/crash, responsive |
+| `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display. Also holds shared state (`balance`, `saveBalance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
+| `slot-themes.js` | Theme configs for the 5 slot machines: symbols, weights, payouts, display colors, per-theme Hold & Win / Ladder configs |
+| `slots.js` | Theme-agnostic slot engine + lobby: 5×3 grid, 10 paylines, Hold & Win, Multiplier Ladder, buy features, autoplay, speed presets |
 | `roulette.js` | Roulette: canvas wheel, ball physics animation, full bet board |
 | `mines.js` | Mines: 5×5 grid, 1–24 mines, multiplier grows per safe pick, cash out anytime |
 | `plinko.js` | Plinko: canvas peg board (12 rows), low/med/high risk tables, concurrent balls |
@@ -22,18 +23,22 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 
 ## Shared State
 - `balance` — global var (declared in `blackjack.js`), shared across all games
+- `saveBalance()` — persists balance to localStorage (`casino-balance`); called from every game's `update*Balance()`. Loaded on startup in `blackjack.js`; values below $500 start fresh at $5,000.
 - `checkAutoReset()` — resets balance to $5,000 when below $500 (in `blackjack.js`)
 - `backToMenu()` — navigation helper (in `blackjack.js`)
-- `launchGame(name)` — shows the right screen, calls init (in `blackjack.js`)
+- `launchGame(name)` — shows the right screen, calls init (in `blackjack.js`); `'slots'` opens the slot lobby
 - Each game has its own `init*()` function called on launch
 
 ## Slot Machine Key Details
-- **Symbols**: 7, BAR, CHR, BEL, DIA, LEM, ORG, WLD (wild), BNS (coin), CRN (crown)
-- **Hold & Win**: 6+ BNS triggers. Coins lock, empty cells re-spin. New coin resets spins to 3. Grand bonus for full grid.
-- **Multiplier Ladder**: 3+ CRN triggers. Pick 1-of-3 tiles to climb (2x→1000x). Can collect early.
-- **Buy features**: Hold & Win costs 100× total bet, Ladder costs 50× total bet.
-- **Crown reels**: CRN only spawns on reels 1, 3, 5 (cols 0, 2, 4) via `CROWN_REELS` set
-- **Tease animations**: 2 crowns or 5 coins trigger golden pulse on those cells + "So close!" msg
+- **5 themed machines** share one engine (`slots.js`); all machine-specific config lives in `slot-themes.js` (`SLOT_THEMES` / `SLOT_THEME_ORDER`)
+- **Lobby**: `initSlotLobby()` renders machine cards (thumb, tagline, risk dots, features, per-machine stats); `launchSlotMachine(id)` activates a theme; `backToSlotLobby()` returns (blocked mid-spin/bonus)
+- **Machines**: Vegas Classic (medium, Hold&Win + Ladder — the original, payouts unchanged), Fruity Spins (low volatility, no bonuses, wild-heavy), Pirate's Treasure (medium, Hold&Win), Egyptian Gold (med-high, Hold&Win, richer coins), Space Odyssey (high volatility, 5x ALN = 2000x, Cosmic Ladder to 2500x)
+- **Special symbol IDs**: `WLD` (wild), `BNS` (Hold & Win coin), `CRN` (ladder scatter) are engine-reserved; other IDs are theme-local. `wildTopSym` = payout for an all-wild line.
+- **Hold & Win**: `trigger`+ BNS starts it. Coins lock, empty cells re-spin. New coin resets spins. Grand bonus (`grand`) for full grid. Per-theme coin pool/trigger/buy cost.
+- **Multiplier Ladder**: 3+ CRN triggers. Pick 1-of-3 tiles to climb. Per-theme levels/scatter pays/buy cost. CRN only spawns on the theme's `ladder.reels` (cols 0, 2, 4).
+- **Tease animations**: 2 crowns or trigger−1 coins → golden pulse + slow last reel + "So close!" msg (only for features the theme has)
+- **Per-machine stats** persisted to localStorage (`casino-slot-stats`), keyed by theme id; shown on lobby cards
+- **Paytable**: generated per theme by `buildPaytableHTML()`; shown in a modal overlay (`#paytable-overlay`) opened by the 📊 ODDS button, not inline
 - **Animation**: Reels stop left-to-right with bounce/pop CSS. Big win (10x+) shakes machine.
 - **Coin size**: Hold & Win coins use 2.4rem emoji, 0.75rem value text
 

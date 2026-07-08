@@ -35,6 +35,7 @@ function roulEl(id) { return document.getElementById(id); }
 function updateRoulBalance() {
   roulEl('roul-balance').textContent = `Balance: $${balance.toLocaleString()}`;
   document.getElementById('menu-balance').textContent = `Balance: $${balance.toLocaleString()}`;
+  saveBalance();
 }
 
 function setRoulMsg(text, cls='') {

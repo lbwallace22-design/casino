@@ -21,7 +21,7 @@
   <div class="balance-display" id="menu-balance">Balance: $5,000</div>
   <div class="menu-buttons">
     <button class="menu-btn blue" onclick="launchGame('blackjack')">BLACKJACK</button>
-    <button class="menu-btn orange" onclick="launchGame('slots')">SLOT MACHINE</button>
+    <button class="menu-btn orange" onclick="launchGame('slots')">SLOTS · 5 MACHINES</button>
     <button class="menu-btn red" onclick="launchGame('roulette')">ROULETTE</button>
     <button class="menu-btn purple" onclick="launchGame('mines')">MINES</button>
     <button class="menu-btn teal" onclick="launchGame('plinko')">PLINKO</button>
@@ -101,8 +101,20 @@
   <div class="stats-row" id="bj-stats">W:0 L:0 P:0 BJ:0</div>
 </div>
 
+<!-- ═══ SLOT LOBBY ═══ -->
+<div id="slot-lobby-screen" class="screen">
+  <h1 class="title gold">S L O T S</h1>
+  <div class="balance-display" id="lobby-balance">Balance: $5,000</div>
+  <div class="slot-lobby-cards" id="slot-lobby-cards"></div>
+  <div class="btn-row">
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+</div>
+
 <!-- ═══ SLOT MACHINE ═══ -->
 <div id="slots-screen" class="screen">
+
+  <div class="slot-machine-title" id="slot-machine-name">🎰 VEGAS CLASSIC</div>
 
   <!-- Top bar -->
   <div class="top-bar">
@@ -135,11 +147,12 @@
     <button class="btn green" id="btn-spin" onclick="slotSpin()">SPIN</button>
     <button class="btn red" id="btn-max-bet" onclick="slotMaxSpin()">MAX BET</button>
     <button class="btn blue" id="btn-autoplay" onclick="toggleAutoplay()">AUTO</button>
-    <button class="btn dark" onclick="backToMenu()">MENU</button>
+    <button class="btn dark" onclick="backToSlotLobby()">LOBBY</button>
   </div>
-  <div class="btn-row">
+  <div class="btn-row" id="slot-buy-row">
     <button class="btn purple" id="btn-buy-holdwin" onclick="slotBuyHoldWin()">BUY HOLD&WIN</button>
     <button class="btn teal" id="btn-buy-ladder" onclick="slotBuyLadder()">BUY LADDER</button>
+    <button class="btn dark" id="btn-odds" onclick="toggleSlotPaytable(true)">📊 ODDS</button>
   </div>
 
   <!-- Speed & Autoplay controls -->
@@ -160,13 +173,13 @@
 
   <div class="slot-buy-cost" id="slot-buy-cost">Buy Hold&Win: $10,000  |  Buy Ladder: $5,000</div>
 
-  <!-- Paytable -->
-  <div class="slot-paytable">
-    5x7:500x  4x7:50x  3x7:10x  |  5xBAR:100x  4xBAR:20x  3xBAR:5x<br>
-    5xDIA:75x  4x:15x  3x:4x  |  5xBEL:50x  4x:10x  3x:3x<br>
-    5xCHR:40x  4x:8x  3x:2x  |  5xLEM/ORG:20x  4x:4x  3x:1x<br>
-    WILD subs all (except COIN/CROWN)  |  6+ 💰 = Hold & Win<br>
-    3+ 👑 = Multiplier Ladder (up to 1000x!)  |  Full grid = Grand Bonus  |  10 lines
+  <!-- Odds overlay (paytable filled per machine by applySlotTheme) -->
+  <div id="paytable-overlay" class="hidden" onclick="toggleSlotPaytable(false)">
+    <div class="paytable-container" onclick="event.stopPropagation()">
+      <div class="paytable-title" id="paytable-title">📊 ODDS &amp; PAYS</div>
+      <div class="slot-paytable" id="slot-paytable"></div>
+      <button class="btn dark" onclick="toggleSlotPaytable(false)">CLOSE</button>
+    </div>
   </div>
 </div>
 
@@ -322,6 +335,7 @@
 </div>
 
 <script src="blackjack.js"></script>
+<script src="slot-themes.js"></script>
 <script src="slots.js"></script>
 <script src="roulette.js"></script>
 <script src="mines.js"></script>
