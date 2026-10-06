@@ -1,18 +1,22 @@
-const CACHE_NAME = 'casino-v18';
+const CACHE_NAME = 'casino-v20';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/blackjack.js',
-  '/slot-themes.js',
-  '/slots.js',
-  '/roulette.js',
-  '/mines.js',
-  '/plinko.js',
-  '/crash.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  './',
+  './index.html',
+  './style.css',
+  './baccarat.css',
+  './baccarat-rules.js',
+  './baccarat-cards.js',
+  './baccarat.js',
+  './blackjack.js',
+  './slot-themes.js',
+  './slots.js',
+  './roulette.js',
+  './mines.js',
+  './plinko.js',
+  './crash.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
 ];
 
 self.addEventListener('install', e => {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a18">
@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="baccarat.css">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -21,6 +22,7 @@
   <div class="balance-display" id="menu-balance">Balance: $5,000</div>
   <div class="menu-buttons">
     <button class="menu-btn blue" onclick="launchGame('blackjack')">BLACKJACK</button>
+    <button class="menu-btn teal" onclick="launchGame('baccarat')">BACCARAT · SQUEEZE TABLE</button>
     <button class="menu-btn orange" onclick="launchGame('slots')">SLOTS · 5 MACHINES</button>
     <button class="menu-btn red" onclick="launchGame('roulette')">ROULETTE</button>
     <button class="menu-btn purple" onclick="launchGame('mines')">MINES</button>
@@ -334,7 +336,54 @@
   </div>
 </div>
 
+<!-- Baccarat uses its own table styling and the casino's shared wallet. -->
+<section id="baccarat-screen" class="screen" aria-label="Baccarat">
+  <div class="bac-shell">
+    <header class="bac-header">
+      <button class="bac-back" id="bac-menu" type="button">← Casino</button>
+      <div class="bac-heading"><small>THE PRIVATE TABLE</small><h1>Baccarat</h1></div>
+      <div class="bac-wallet"><span>YOUR BALANCE</span><strong id="bac-balance">5,000</strong><small>coins</small></div>
+    </header>
+    <div class="bac-table">
+      <div class="bac-felt">
+        <div class="bac-dealer-tray" aria-hidden="true"><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i><i class="bac-rack-stack"></i></div>
+        <div class="bac-shoe" aria-hidden="true"></div>
+        <div class="bac-table-sign"><small>CASINO PRIVÉ</small><h2>BACCARAT</h2><p>EIGHT DECKS · MINIMUM 500</p></div>
+        <div class="bac-hand bac-opponent">
+          <header><span id="bac-opponent-name">BANKER</span><strong class="bac-score" id="bac-opponent-score">—</strong></header>
+          <div class="bac-cards" id="bac-opponent-cards"></div>
+        </div>
+        <div class="bac-center-rule"><span>PLAYER PAYS 1:1</span><i>♠</i><span>BANKER PAYS 0.95:1</span></div>
+        <div class="bac-hand bac-yours">
+          <header><span id="bac-own-name">PLAYER · YOUR HAND</span><strong class="bac-score" id="bac-own-score">—</strong></header>
+          <div class="bac-cards" id="bac-own-cards"></div>
+        </div>
+        <div class="bac-bet-spots" aria-label="Choose the hand to back">
+          <button type="button" class="bac-spot is-selected" data-bac-side="player" aria-pressed="true"><span class="bac-spot-title">PLAYER</span><small>PAYS 1:1</small><span class="bac-spot-stake"></span></button>
+          <button type="button" class="bac-spot bac-tie-spot" data-bac-side="tie" aria-pressed="false"><span class="bac-spot-title">TIE</span><small>PAYS 8:1</small><span class="bac-spot-stake"></span></button>
+          <button type="button" class="bac-spot" data-bac-side="banker" aria-pressed="false"><span class="bac-spot-title">BANKER</span><small>5% COMMISSION</small><span class="bac-spot-stake"></span></button>
+        </div>
+      </div>
+    </div>
+    <div class="bac-status-panel"><div aria-live="polite" aria-atomic="true"><strong id="bac-status">Take your seat.</strong><p id="bac-detail">Choose Player, Banker or Tie, then build your bet with chips.</p></div><button type="button" id="bac-quick-reveal" class="bac-text-button" hidden>Reveal my cards</button><div class="bac-peel-choice" id="bac-peel-choice" hidden><span>On a Tie bet, peel</span><button type="button" data-bac-peel="player" aria-pressed="true">Player</button><button type="button" data-bac-peel="banker" aria-pressed="false">Banker</button></div></div>
+    <div class="bac-console">
+      <div class="bac-chip-section"><span class="bac-label">ADD CHIPS TO YOUR BET</span><div class="bac-chip-rack" aria-label="Chip denominations">
+        <button type="button" class="bac-chip" data-bac-chip="500" style="--chip-color:#23627e" aria-label="Add 500 coins"><span>500</span></button>
+        <button type="button" class="bac-chip" data-bac-chip="1000" style="--chip-color:#973e48" aria-label="Add 1,000 coins"><span>1K</span></button>
+        <button type="button" class="bac-chip" data-bac-chip="2500" style="--chip-color:#4d6950" aria-label="Add 2,500 coins"><span>2.5K</span></button>
+        <button type="button" class="bac-chip" data-bac-chip="5000" style="--chip-color:#694d89" aria-label="Add 5,000 coins"><span>5K</span></button>
+      </div></div>
+      <div class="bac-wager-section"><span class="bac-label">YOUR BET · COINS</span><strong id="bac-bet-value">500</strong><div class="bac-adjustments"><button type="button" id="bac-undo">Undo</button><button type="button" id="bac-clear">Clear</button></div></div>
+      <button type="button" class="bac-deal" id="bac-deal"><span>DEAL HAND</span><small>500 minimum</small></button>
+    </div>
+    <footer class="bac-footer"><div><span class="bac-label">RECENT HANDS</span><div class="bac-history" id="bac-history" aria-label="Recent results"><span class="bac-history-empty">Your story starts here.</span></div></div><details class="bac-rules"><summary>Table rules</summary><p>Bet at least 500 coins on Player, Banker or Tie. Highest last digit wins: aces count as 1; tens and face cards count as 0. An opening 8 or 9 is a natural and stops all drawing.</p><p>Player draws on 0–5 and stands on 6–7. If Player stands, Banker draws on 0–5. Otherwise Banker draws on 0–2; on 3 except against an 8; on 4 against 2–7; on 5 against 4–7; and on 6 against 6–7. Banker stands on 7.</p><p>Player wins pay 1:1. Banker wins pay 0.95:1 after 5% commission. Tie bets pay 8:1 if the hands tie and lose otherwise. Player and Banker bets return their stake on a tie. When betting Tie, choose which hand to peel. Revealing a card does not change the result. Balances below 500 refill to 5,000 after a completed hand.</p><p>Drag upward from a card to squeeze it. Release before the threshold to put it back, or use “Reveal my cards.” Keyboard: focus a card and press Enter or Space.</p></details></footer>
+  </div>
+</section>
+
 <script src="blackjack.js"></script>
+<script src="baccarat-rules.js"></script>
+<script src="baccarat-cards.js"></script>
+<script src="baccarat.js"></script>
 <script src="slot-themes.js"></script>
 <script src="slots.js"></script>
 <script src="roulette.js"></script>
@@ -343,7 +392,7 @@
 <script src="crash.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
 </body>

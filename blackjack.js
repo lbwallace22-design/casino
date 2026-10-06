@@ -292,12 +292,16 @@ function lockInputs(locked) {
 
 // ─── MENU ──────────────────────────────────────────────────────────
 function launchGame(game) {
+  if (typeof baccaratRoundActive === 'function' && baccaratRoundActive()) return;
   if (game === 'blackjack') {
     showScreen('blackjack-screen');
     updateBalance();
     updateTotalLabel();
     updateCountDisplay();
     newShoe();
+  } else if (game === 'baccarat') {
+    showScreen('baccarat-screen');
+    initBaccarat();
   } else if (game === 'slots') {
     showScreen('slot-lobby-screen');
     initSlotLobby();
@@ -316,6 +320,7 @@ function launchGame(game) {
   }
 }
 function backToMenu() {
+  if (typeof baccaratRoundActive === 'function' && baccaratRoundActive()) return;
   checkAutoReset();
   showScreen('menu-screen');
   updateBalance();
