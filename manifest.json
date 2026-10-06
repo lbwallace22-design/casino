@@ -1,8 +1,8 @@
 {
   "name": "Casino",
   "short_name": "Casino",
-  "description": "Blackjack, Slots & Roulette",
-  "start_url": "/",
+  "description": "Baccarat, Blackjack, Slots, Roulette, Mines, Plinko & Crash",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",

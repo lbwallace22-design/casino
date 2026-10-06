@@ -11,6 +11,8 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 | `index.html` | Single-page shell: menu + slot lobby + game screens (blackjack, slots, roulette, mines, plinko, crash) |
 | `style.css` | All styling including card, slot, slot lobby, roulette, ladder overlay, mines/plinko/crash, responsive |
 | `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display. Also holds shared state (`balance`, `saveBalance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
+| `baccarat.js` / `baccarat.css` | Baccarat table, chip betting, squeeze interaction, shared wallet and reload recovery |
+| `baccarat-rules.js` / `baccarat-cards.js` | Pure baccarat rules and payouts; canvas card faces and curved peel renderer |
 | `slot-themes.js` | Theme configs for the 5 slot machines: symbols, weights, payouts, display colors, per-theme Hold & Win / Ladder configs |
 | `slots.js` | Theme-agnostic slot engine + lobby: 5×3 grid, 10 paylines, Hold & Win, Multiplier Ladder, buy features, autoplay, speed presets |
 | `roulette.js` | Roulette: canvas wheel, ball physics animation, full bet board |
@@ -73,11 +75,21 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - All bet inputs are clamped (negative/zero → default). Never trust `parseInt` raw —
   a negative bet would ADD money via `balance -= bet`.
 
+## Baccarat
+- Eight-deck shoe; Player/Banker/Tie wagers in 500-coin increments, minimum 500.
+- Player pays 1:1, Banker 0.95:1 after commission, Tie 8:1. Player/Banker stakes push on ties.
+- The selected wager and peel hand are separate for Tie bets. Opposite opening cards are shown first.
+- Third cards follow the standard table automatically; your third card can also be peeled.
+- `baccaratRoundActive()` guards shared navigation so an in-flight stake cannot trigger a refill.
+- Pending and settling hands use `casino-baccarat-round` to resume or finish once after reload.
+- `node --test tests/baccarat-rules.test.js` runs the rules and payout tests.
+- See `BACCARAT.md` for behavior and validation notes.
+
 ## Deployment
 1. Make changes
 2. Bump `CACHE_NAME` in `sw.js` (e.g., `casino-v5` → `casino-v6`)
-3. Commit and push to `master`
-4. GitHub Pages auto-deploys
+3. Commit to a feature branch and open a pull request for the owner to merge
+4. GitHub Pages auto-deploys after the merge to `master`
 
 ## Style Notes — "Neon Vegas" design system (v17+)
 - All theming is token-driven via CSS variables in `:root` of `style.css` — change tokens, retheme everything
