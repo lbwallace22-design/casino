@@ -247,6 +247,10 @@
     storePending('settled', finalBalance);
     balance = finalBalance;
     saveBalance();
+    achRound('baccarat', { wager: round.bet, payout: credit });
+    if (net > 0 && round.result.natural) achUnlock('bac_natural');
+    if (net > 0 && betSide === 'tie') achUnlock('bac_tie');
+    if (net > 0 && betSide === 'banker' && achCount('bac_banker') >= 10) achUnlock('bac_banker');
     const refill = balance < MIN_BET;
     checkAutoReset();
     updateWallet();

@@ -213,6 +213,12 @@ function endCrashRound() {
 
   drawCrash(true);
 
+  const crashPayout = crashCashedAt > 0 ? Math.floor(crashBet * crashCashedAt) : 0;
+  achRound('crash', { wager: crashBet, payout: crashPayout });
+  if (crashCashedAt >= 10) achUnlock('crash_10');
+  if (crashCashedAt >= 100) achUnlock('crash_100');
+  if (crashCashedAt > 0 && crashPoint >= 2 && crashCashedAt >= crashPoint * 0.95) achUnlock('crash_close');
+
   if (crashPlayerIn) {
     crashPlayerIn = false;
     setCrashMsg(`💥 CRASHED @ ${crashPoint.toFixed(2)}x — lost $${crashBet.toLocaleString()}`, 'lose');

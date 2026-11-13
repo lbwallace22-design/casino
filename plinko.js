@@ -176,6 +176,7 @@ function plinkoDrop() {
     x: waypoints[0].x, y: waypoints[0].y,
   });
 
+  if (plinkoBalls.length >= 10) achUnlock('plinko_rain');
   setPlinkoMsg('Dropping...');
 
   if (!plinkoAnimating) {
@@ -217,6 +218,8 @@ function plinkoTick(now) {
     const payout = Math.floor(ball.bet * mult);
     balance += payout;
     plinkoStats.won += payout;
+    achRound('plinko', { wager: ball.bet, payout });
+    if (ball.mults === PLINKO_MULTS.high && mult === Math.max(...ball.mults)) achUnlock('plinko_edge');
     plinkoBucketFlash[ball.bucket] = performance.now() + 500;
     updatePlinkoBalance();
     updatePlinkoStats();

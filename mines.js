@@ -141,6 +141,7 @@ function minesPick(i) {
     renderMinesGrid(true, i);
     setMinesButtons();
     setMinesMsg(`💥 BOOM! Lost $${minesBet.toLocaleString()}`, 'lose');
+    achRound('mines', { wager: minesBet, payout: 0 });
     setMinesDetail(`Made ${minesPicks} safe pick${minesPicks !== 1 ? 's' : ''} before the mine`);
     if (balance < 500) {
       checkAutoReset();
@@ -172,6 +173,10 @@ function minesCashout(cleared) {
   balance += payout;
   minesStats.wins++;
   minesStats.won += payout;
+  achRound('mines', { wager: minesBet, payout });
+  achUnlock('mines_cash');
+  if (cleared) achUnlock('mines_clear');
+  if (minesCount >= 24) achUnlock('mines_24');
   updateMinesBalance();
   updateMinesStats();
   renderMinesGrid(true);

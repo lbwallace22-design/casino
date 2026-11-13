@@ -18,7 +18,7 @@
 
 <!-- ═══ CASINO MENU ═══ -->
 <div id="menu-screen" class="screen active">
-  <h1 class="title gold">C A S I N O</h1>
+  <h1 class="title gold" onclick="devTitleTap()">C A S I N O</h1>
   <div class="balance-display" id="menu-balance">Balance: $5,000</div>
   <div class="menu-buttons">
     <button class="menu-btn blue" onclick="launchGame('blackjack')">BLACKJACK</button>
@@ -28,11 +28,54 @@
     <button class="menu-btn purple" onclick="launchGame('mines')">MINES</button>
     <button class="menu-btn teal" onclick="launchGame('plinko')">PLINKO</button>
     <button class="menu-btn green" onclick="launchGame('crash')">CRASH</button>
+    <button class="menu-btn gold-accent" onclick="launchGame('achievements')">🏆 ACHIEVEMENTS <span class="menu-badge" id="menu-ach-count">0/39</span></button>
+    <button class="menu-btn dev-accent hidden" id="menu-dev-btn" onclick="launchGame('dev')">🛠️ DEVELOPER OPTIONS</button>
   </div>
   <div class="deposit-row">
     <span class="muted">Balance resets to $5,000 when below $500</span>
   </div>
 </div>
+
+<!-- ═══ ACHIEVEMENTS ═══ -->
+<div id="achievements-screen" class="screen">
+  <h1 class="title gold">ACHIEVEMENTS</h1>
+  <div class="ach-summary" id="ach-summary"></div>
+  <div class="ach-list" id="ach-list"></div>
+  <div class="btn-row">
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+</div>
+
+<!-- ═══ DEVELOPER OPTIONS ═══ -->
+<div id="dev-screen" class="screen">
+  <h1 class="title gold">DEV OPTIONS</h1>
+  <div class="balance-display" id="dev-balance">Balance: $5,000</div>
+  <div class="dev-panel">
+    <label class="dev-label" for="dev-amount">Amount</label>
+    <input type="text" inputmode="numeric" id="dev-amount" class="dev-input" placeholder="e.g. 1000000">
+    <div class="dev-row">
+      <button class="btn green" onclick="devSetBalance()">SET BALANCE</button>
+      <button class="btn blue" onclick="devAddBalance()">ADD</button>
+    </div>
+    <div class="dev-row">
+      <button class="btn dark" onclick="devSetBalance(5000)">$5K</button>
+      <button class="btn dark" onclick="devSetBalance(100000)">$100K</button>
+      <button class="btn dark" onclick="devSetBalance(1000000)">$1M</button>
+      <button class="btn dark" onclick="devSetBalance(1000000000)">$1B</button>
+    </div>
+    <div class="dev-msg" id="dev-msg"></div>
+    <div class="dev-divider"></div>
+    <div class="dev-row">
+      <button class="btn red" id="dev-reset-ach" onclick="devResetAchievements()">RESET ACHIEVEMENTS</button>
+      <button class="btn dark" onclick="devHide()">HIDE DEV OPTIONS</button>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+</div>
+
+<div id="ach-toast" class="ach-toast" aria-live="polite"></div>
 
 <!-- ═══ BLACKJACK ═══ -->
 <div id="blackjack-screen" class="screen">
@@ -40,15 +83,7 @@
   <!-- Top bar -->
   <div class="top-bar">
     <div class="balance-display" id="bj-balance">Balance: $5,000</div>
-    <div class="bet-controls">
-      <label id="bj-bet-label">Bet/Hand: $</label>
-      <input type="number" id="bj-bet" value="25" min="5" max="100000" step="5">
-      <span id="bj-total-label" class="muted">(Total: $75)</span>
-    </div>
-    <div class="hand-controls">
-      <label>Hands:</label>
-      <input type="number" id="bj-hands" value="3" min="1" max="7" step="1">
-    </div>
+    <div class="bj-on-table" id="bj-total-label">On table: $0</div>
   </div>
 
   <!-- Options row -->
@@ -57,11 +92,12 @@
       <input type="checkbox" id="bj-show-double" checked>
       Show double card
     </label>
-    <div class="radio-group">
-      <label><input type="radio" name="betmode" value="per_hand" checked> Per Hand</label>
-      <label><input type="radio" name="betmode" value="total"> Total</label>
-    </div>
     <div class="count-display" id="bj-count">RC:+0 TC:+0.0</div>
+    <div class="bj-bet-actions">
+      <button class="bj-text-btn" id="btn-bj-undo" onclick="bjUndoBet()">↶ UNDO</button>
+      <button class="bj-text-btn" id="btn-bj-clear" onclick="bjClearBets()">✕ CLEAR</button>
+      <button class="bj-text-btn" id="btn-bj-2x" onclick="bjDoubleBets()">2×</button>
+    </div>
   </div>
 
   <!-- Dealer area -->
@@ -73,18 +109,23 @@
     </div>
 
     <div class="table-text">BLACKJACK PAYS 3 TO 2</div>
+    <div class="table-subtext">PERFECT PAIRS 6 · 12 · 25 TO 1 &nbsp;|&nbsp; 21+3 FLUSH 5 · STRAIGHT 10 · TRIPS 30 · STR FLUSH 40 · SUITED TRIPS 100</div>
 
     <!-- Player hands -->
     <div class="player-area" id="player-area"></div>
   </div>
 
+  <!-- Chip tray: pick a chip, tap a betting circle -->
+  <div class="bj-chip-tray">
+    <div class="bj-chip-rack" id="bj-chip-rack"></div>
+  </div>
+
   <!-- Message -->
-  <div class="msg" id="bj-msg">Place your bet and press DEAL</div>
+  <div class="msg" id="bj-msg">Pick a chip, tap a circle to bet, then DEAL</div>
   <div class="detail" id="bj-detail"></div>
 
   <!-- Main action buttons -->
   <div class="btn-row" id="bj-buttons">
-    <button class="btn red" id="btn-bj-max" onclick="bjMaxBet()">MAX BET</button>
     <button class="btn blue" id="btn-deal" onclick="bjDeal()">DEAL</button>
     <button class="btn green" id="btn-hit" onclick="bjHit()" disabled>HIT</button>
     <button class="btn orange" id="btn-stand" onclick="bjStand()" disabled>STAND</button>
@@ -381,6 +422,7 @@
 </section>
 
 <script src="blackjack.js"></script>
+<script src="achievements.js"></script>
 <script src="baccarat-rules.js"></script>
 <script src="baccarat-cards.js"></script>
 <script src="baccarat.js"></script>
