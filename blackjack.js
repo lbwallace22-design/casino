@@ -5,9 +5,10 @@
 // ─── CONFIG ────────────────────────────────────────────────────────
 const NUM_DECKS = 6;
 const STARTING_BALANCE = 5000;
-const CHIP_VALUES = [5, 25, 100, 500, 1000, 5000, 25000, 100000];
+const CHIP_VALUES = [5, 25, 100, 500, 1000, 5000, 25000, 100000, 500000, 1000000, 10000000, 100000000];
 const CHIP_COLORS = { 5:'#d64545', 25:'#2f9e57', 100:'#2b2b38', 500:'#7c3aed',
-                      1000:'#e0a526', 5000:'#e8618c', 25000:'#1f8fbf', 100000:'#c9a227' };
+                      1000:'#e0a526', 5000:'#e8618c', 25000:'#1f8fbf', 100000:'#c9a227',
+                      500000:'#0f766e', 1000000:'#b91c1c', 10000000:'#1e3a8a', 100000000:'#111111' };
 const MAX_HANDS = 5;
 const DEAL_DELAY = 280;
 const DEALER_DELAY = 550;
@@ -157,6 +158,7 @@ function fmtShort(v) {
   return `$${v}`;
 }
 function fmtChip(v) {
+  if (v >= 1e6) return `${v / 1e6}M`;
   return v >= 1000 ? `${v / 1000}K` : String(v);
 }
 function chipColorFor(amt) {
@@ -175,6 +177,11 @@ function renderChipRack() {
   rack.innerHTML = CHIP_VALUES.map(v => `<button class="bj-chip${v === bjChip ? ' selected' : ''}"
       style="--chip-color:${CHIP_COLORS[v]}" onclick="bjSelectChip(${v})"
       ${gameActive ? 'disabled' : ''} aria-label="$${v} chip"><span>${fmtChip(v)}</span></button>`).join('');
+  // Keep the selected chip in view when the rack scrolls sideways on phones
+  const sel = rack.querySelector('.bj-chip.selected');
+  if (sel && rack.scrollWidth > rack.clientWidth) {
+    rack.scrollLeft = sel.offsetLeft - (rack.clientWidth - sel.offsetWidth) / 2;
+  }
   const none = seatTotal() === 0;
   $('btn-bj-undo').disabled = gameActive || !betLog.length;
   $('btn-bj-clear').disabled = gameActive || none;
@@ -311,7 +318,7 @@ function betSpotHTML(pos, amt) {
   const drop = `${pos}-main` === lastChipDrop ? ' drop' : '';
   const chip = amt > 0
     ? `<span class="bj-spot-chip${drop}" style="--chip-color:${chipColorFor(amt)}"></span>
-       <span class="bj-spot-amt">$${amt.toLocaleString()}</span>`
+       <span class="bj-spot-amt">${amt >= 100000 ? fmtShort(amt) : `$${amt.toLocaleString()}`}</span>`
     : `<span class="bj-spot-plus">+</span>`;
   return `<button class="bj-spot${amt > 0 ? ' has-bet' : ''}" onclick="bjPlaceChip(${pos})"
     ${gameActive ? 'disabled' : ''} aria-label="Bet on seat ${pos + 1}">${chip}</button>`;
@@ -321,7 +328,7 @@ function renderHands() {
   const area = $('player-area');
   area.innerHTML = '';
   const seatsInPlay = new Set(hands.map(h => h.position)).size;
-  area.classList.toggle('crowded', seatsInPlay >= 4);
+  area.classList.toggle('crowded', seatsInPlay >= 4 || hands.length === 0);   // idle shows all 5 seats
   for (let pos = 0; pos < MAX_HANDS; pos++) {
     const posHands = hands.filter(h => h.position === pos);
     if (hands.length && !posHands.length) continue;   // empty seats hide while cards are on the table
