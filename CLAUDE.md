@@ -10,7 +10,7 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 |------|---------|
 | `index.html` | Single-page shell: menu + slot lobby + game screens (blackjack, slots, roulette, mines, plinko, crash) |
 | `style.css` | All styling including card, slot, slot lobby, roulette, ladder overlay, mines/plinko/crash, responsive |
-| `blackjack.js` | Blackjack logic: multi-hand, insurance, split, double, card counting display. Also holds shared state (`balance`, `saveBalance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
+| `blackjack.js` | Blackjack logic: chip betting on 5 seats, Perfect Pairs / 21+3 side bets, insurance, split, double, card counting display. Also holds shared state (`balance`, `saveBalance`, `launchGame`, `backToMenu`, `checkAutoReset`) |
 | `baccarat.js` / `baccarat.css` | Baccarat table, chip betting, squeeze interaction, shared wallet and reload recovery |
 | `baccarat-rules.js` / `baccarat-cards.js` | Pure baccarat rules and payouts; canvas card faces and curved peel renderer |
 | `slot-themes.js` | Theme configs for the 5 slot machines: symbols, weights, payouts, display colors, per-theme Hold & Win / Ladder configs |
@@ -19,6 +19,7 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 | `mines.js` | Mines: 5×5 grid, 1–24 mines, multiplier grows per safe pick, cash out anytime |
 | `plinko.js` | Plinko: canvas peg board (12 rows), low/med/high risk tables, concurrent balls |
 | `crash.js` | Crash: canvas multiplier curve, cash out before crash, auto cash-out, history chips |
+| `achievements.js` | 36 achievements (defs, `achRound`/`achUnlock`/`achCount` hooks, toast, screen) + hidden Developer Options |
 | `sw.js` | Service worker for offline PWA caching (bump `CACHE_NAME` version on every change!) |
 | `manifest.json` | PWA manifest |
 | `icon-192.png` / `icon-512.png` | App icons |
@@ -50,7 +51,9 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - Ease-out deceleration: `1 - Math.pow(1 - t, 2.5)`
 
 ## Blackjack Key Details
-- 1–7 simultaneous hands, per-hand or total bet mode
+- Chip betting: pick a chip from the rack, tap a seat's circle (5 seats max, `MAX_HANDS`). Bets stay on the table between rounds; UNDO / CLEAR / 2× in the options row
+- Side bets per seat (need a main bet): Perfect Pairs (mixed 6, colored 12, perfect 25 to 1) and 21+3 (flush 5, straight 10, trips 30, straight flush 40, suited trips 100). Resolved right after the deal in `resolveSideBets()`
+- 4+ seats in play on phones → `.player-area.crowded` shrinks cards so all seats fit one row
 - Insurance prompt on dealer Ace
 - Running count / true count display (hole card excluded until reveal via `holeCardCounted` flag)
 - `drawCard(counted)` — pass `false` to draw without counting (used for dealer hole card)
@@ -84,6 +87,11 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - Pending and settling hands use `casino-baccarat-round` to resume or finish once after reload.
 - `node --test tests/baccarat-rules.test.js` runs the rules and payout tests.
 - See `BACCARAT.md` for behavior and validation notes.
+
+## Achievements & Dev Options
+- Games report via `achRound(game, {wager, payout, countRound})` (one call per finished round; bonus payouts/feature buys use `countRound:false`) and `achUnlock(id)` for feats. Progress in localStorage `casino-achievements`.
+- Achievement stats only move from real rounds — dev balance edits never count as winnings.
+- Dev Options: hidden menu button (`casino-dev-unlocked`); set/add balance, reset achievements, re-hide.
 
 ## Deployment
 1. Make changes

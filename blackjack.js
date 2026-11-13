@@ -5,9 +5,10 @@
 // ─── CONFIG ────────────────────────────────────────────────────────
 const NUM_DECKS = 6;
 const STARTING_BALANCE = 5000;
-const DEFAULT_BET = 25;
-const DEFAULT_HANDS = 3;
-const MAX_HANDS = 7;
+const CHIP_VALUES = [5, 25, 100, 500, 1000, 5000, 25000, 100000];
+const CHIP_COLORS = { 5:'#d64545', 25:'#2f9e57', 100:'#2b2b38', 500:'#7c3aed',
+                      1000:'#e0a526', 5000:'#e8618c', 25000:'#1f8fbf', 100000:'#c9a227' };
+const MAX_HANDS = 5;
 const DEAL_DELAY = 280;
 const DEALER_DELAY = 550;
 
@@ -33,17 +34,29 @@ let dealerHand = [];
 let hands = [];
 let activeHand = 0;
 let gameActive = false;
-let baseBet = DEFAULT_BET;
-let numPositions = DEFAULT_HANDS;
+let numPositions = 0;          // seats in play this round
 let insuranceTaken = false;
 let insuranceCost = 0;
 let showDoubleCard = true;
-let betMode = 'per_hand';
+// Chip betting: bets sit in each seat's circle until DEAL; they stay for the next round
+let seatBets = Array(MAX_HANDS).fill(0);
+// Side bets per seat: Perfect Pairs (your first two cards) and 21+3 (your two + dealer upcard)
+let sideBets = { pp: Array(MAX_HANDS).fill(0), t3: Array(MAX_HANDS).fill(0) };
+let sideResults = {};          // `${pos}-${kind}` → { win, label, payout }
+let sideSummary = [];          // detail strings for the round
+let roundSideTotal = 0;
+const SIDE_NAMES = { pp: 'Perfect Pairs', t3: '21+3' };
+const PP_PAYS = { perfect: 25, colored: 12, mixed: 6 };
+const T3_PAYS = { suitedTrips: 100, straightFlush: 40, trips: 30, straight: 10, flush: 5 };
+let betLog = [];               // [{pos, amt}] for UNDO
+let bjChip = 25;
+let lastChipDrop = -1;         // seat that just got a chip (for the drop animation)
 let runningCount = 0;
 let cardsSeen = 0;
 let holeCardCounted = false;
 
 let stats = { hands:0, wins:0, losses:0, pushes:0, bjs:0 };
+let bjRoundStartBalance = 0;
 
 // ─── DECK ──────────────────────────────────────────────────────────
 function makeDeck(n) {
@@ -136,18 +149,113 @@ function updateStats() {
   $('bj-stats').textContent =
     `W:${stats.wins} L:${stats.losses} P:${stats.pushes} BJ:${stats.bjs} (${pct}%)`;
 }
+const sumArr = a => a.reduce((t, b) => t + b, 0);
+function seatTotal() { return sumArr(seatBets) + sumArr(sideBets.pp) + sumArr(sideBets.t3); }
+function fmtShort(v) {
+  if (v >= 1e6) return `$${+(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${+(v / 1e3).toFixed(1)}K`;
+  return `$${v}`;
+}
+function fmtChip(v) {
+  return v >= 1000 ? `${v / 1000}K` : String(v);
+}
+function chipColorFor(amt) {
+  let c = CHIP_VALUES[0];
+  for (const v of CHIP_VALUES) if (amt >= v) c = v;
+  return CHIP_COLORS[c];
+}
 function updateTotalLabel() {
-  const betInput = parseInt($('bj-bet').value) || DEFAULT_BET;
-  const label = $('bj-bet-label');
-  const total = $('bj-total-label');
-  if (betMode === 'per_hand') {
-    label.textContent = 'Bet/Hand: $';
-    total.textContent = `(Total: $${(betInput * numPositions).toLocaleString()})`;
-  } else {
-    label.textContent = 'Total Bet: $';
-    const per = Math.floor(betInput / numPositions);
-    total.textContent = `($${per.toLocaleString()}/hand)`;
+  $('bj-total-label').textContent = `On table: $${seatTotal().toLocaleString()}`;
+  renderChipRack();
+  if (!gameActive) updateButtons();
+}
+function renderChipRack() {
+  const rack = $('bj-chip-rack');
+  if (!rack) return;
+  rack.innerHTML = CHIP_VALUES.map(v => `<button class="bj-chip${v === bjChip ? ' selected' : ''}"
+      style="--chip-color:${CHIP_COLORS[v]}" onclick="bjSelectChip(${v})"
+      ${gameActive ? 'disabled' : ''} aria-label="$${v} chip"><span>${fmtChip(v)}</span></button>`).join('');
+  const none = seatTotal() === 0;
+  $('btn-bj-undo').disabled = gameActive || !betLog.length;
+  $('btn-bj-clear').disabled = gameActive || none;
+  $('btn-bj-2x').disabled = gameActive || none || seatTotal() * 2 > balance;
+}
+
+// ─── CHIP BETTING ──────────────────────────────────────────────────
+function bjSelectChip(v) {
+  if (gameActive) return;
+  bjChip = v;
+  if (hands.length) { clearFinishedRound(); renderHands(); }   // picking a chip resets the table for betting
+  renderChipRack();
+}
+function clearFinishedRound() {
+  // First chip after a finished round sweeps the old cards off the table
+  if (!gameActive && hands.length) {
+    hands = [];
+    dealerHand = [];
+    sideResults = {};
+    renderDealer();
+    setDetail('');
   }
+}
+function betArr(kind) { return kind === 'main' ? seatBets : sideBets[kind]; }
+function bjPlaceChip(pos, kind = 'main') {
+  if (gameActive) return;
+  clearFinishedRound();
+  if (kind !== 'main' && !seatBets[pos]) {
+    setMsg('Put a main bet on this seat first', 'lose');
+    return;
+  }
+  if (seatTotal() + bjChip > balance) {
+    setMsg(`Not enough balance for a $${bjChip.toLocaleString()} chip`, 'lose');
+    return;
+  }
+  const arr = betArr(kind);
+  arr[pos] += bjChip;
+  betLog.push({ pos, amt: bjChip, kind });
+  lastChipDrop = `${pos}-${kind}`;
+  const label = kind === 'main' ? `Seat ${pos + 1}` : `Seat ${pos + 1} ${SIDE_NAMES[kind]}`;
+  setMsg(`${label}: $${arr[pos].toLocaleString()}`);
+  renderHands();
+  lastChipDrop = -1;
+  updateTotalLabel();
+}
+function bjUndoBet() {
+  if (gameActive || !betLog.length) return;
+  clearFinishedRound();
+  const { pos, amt, kind = 'main' } = betLog.pop();
+  const arr = betArr(kind);
+  arr[pos] = Math.max(0, arr[pos] - amt);
+  // A seat with no main bet can't keep its side bets
+  if (!seatBets[pos]) {
+    for (const k of ['pp', 't3']) sideBets[k][pos] = 0;
+    betLog = betLog.filter(e => !(e.pos === pos && e.kind && e.kind !== 'main'));
+  }
+  renderHands();
+  updateTotalLabel();
+}
+function bjClearBets() {
+  if (gameActive) return;
+  clearFinishedRound();
+  seatBets = Array(MAX_HANDS).fill(0);
+  sideBets = { pp: Array(MAX_HANDS).fill(0), t3: Array(MAX_HANDS).fill(0) };
+  betLog = [];
+  setMsg('Pick a chip, tap a circle to bet, then DEAL');
+  renderHands();
+  updateTotalLabel();
+}
+function bjDoubleBets() {
+  if (gameActive || !seatTotal()) return;
+  if (seatTotal() * 2 > balance) { setMsg('Not enough balance to double the bets', 'lose'); return; }
+  clearFinishedRound();
+  for (const kind of ['main', 'pp', 't3']) {
+    betArr(kind).forEach((b, pos) => { if (b) betLog.push({ pos, amt: b, kind }); });
+  }
+  seatBets = seatBets.map(b => b * 2);
+  sideBets.pp = sideBets.pp.map(b => b * 2);
+  sideBets.t3 = sideBets.t3.map(b => b * 2);
+  renderHands();
+  updateTotalLabel();
 }
 
 // ─── CARD HTML ─────────────────────────────────────────────────────
@@ -184,13 +292,42 @@ function renderDealer(hideHole=false) {
   }
 }
 
+function sideSpotHTML(pos, kind) {
+  const amt = sideBets[kind][pos];
+  const res = sideResults[`${pos}-${kind}`];
+  const drop = `${pos}-${kind}` === lastChipDrop ? ' drop' : '';
+  const cls = ['bj-side-spot', amt ? 'has-bet' : '', res ? (res.win ? 'won' : 'lost') : ''].join(' ');
+  const inner = amt
+    ? `<span class="bj-side-chip${drop}" style="--chip-color:${chipColorFor(amt)}"></span><span class="bj-side-amt">${fmtShort(amt)}</span>`
+    : `<span class="bj-side-label">${kind === 'pp' ? 'PP' : '21+3'}</span>`;
+  const tag = res && res.win ? `<span class="bj-side-tag">${res.label}</span>` : '';
+  return `<button class="${cls}" onclick="bjPlaceChip(${pos}, '${kind}')" ${gameActive ? 'disabled' : ''}
+    aria-label="${SIDE_NAMES[kind]} side bet on seat ${pos + 1}">${inner}${tag}</button>`;
+}
+function seatSpotsHTML(pos, amt) {
+  return `${betSpotHTML(pos, amt)}<div class="bj-side-row">${sideSpotHTML(pos, 'pp')}${sideSpotHTML(pos, 't3')}</div>`;
+}
+function betSpotHTML(pos, amt) {
+  const drop = `${pos}-main` === lastChipDrop ? ' drop' : '';
+  const chip = amt > 0
+    ? `<span class="bj-spot-chip${drop}" style="--chip-color:${chipColorFor(amt)}"></span>
+       <span class="bj-spot-amt">$${amt.toLocaleString()}</span>`
+    : `<span class="bj-spot-plus">+</span>`;
+  return `<button class="bj-spot${amt > 0 ? ' has-bet' : ''}" onclick="bjPlaceChip(${pos})"
+    ${gameActive ? 'disabled' : ''} aria-label="Bet on seat ${pos + 1}">${chip}</button>`;
+}
+
 function renderHands() {
   const area = $('player-area');
   area.innerHTML = '';
-  for (let pos = 0; pos < numPositions; pos++) {
+  const seatsInPlay = new Set(hands.map(h => h.position)).size;
+  area.classList.toggle('crowded', seatsInPlay >= 4);
+  for (let pos = 0; pos < MAX_HANDS; pos++) {
     const posHands = hands.filter(h => h.position === pos);
+    if (hands.length && !posHands.length) continue;   // empty seats hide while cards are on the table
     const box = document.createElement('div');
     box.className = 'player-hand-box';
+    const amt = posHands.length ? posHands.reduce((t, h) => t + h.bet, 0) : seatBets[pos];
 
     // Check if this position has the active hand
     if (gameActive && activeHand < hands.length && hands[activeHand].position === pos) {
@@ -198,9 +335,8 @@ function renderHands() {
     }
 
     if (!posHands.length) {
-      box.innerHTML = `<div class="hand-title">Hand ${pos+1}</div>
-        <div class="hand-cards" style="min-height:76px"></div>
-        <div class="hand-value"></div>`;
+      box.classList.add('empty-seat');
+      box.innerHTML = `<div class="hand-title">Seat ${pos+1}</div>${seatSpotsHTML(pos, amt)}`;
     } else if (posHands.length === 1) {
       const h = posHands[0];
       const hideLast = h.doubleHidden;
@@ -214,9 +350,9 @@ function renderHands() {
         valText = `${handValue(h.cards)}`;
       }
       if (h.result) valText += ` ${h.result.toUpperCase()}`;
-      box.innerHTML = `<div class="hand-title">Hand ${pos+1}</div>
+      box.innerHTML = `<div class="hand-title">Seat ${pos+1}</div>
         <div class="hand-cards">${cardsHTML}</div>
-        <div class="hand-value">${valText}</div>`;
+        <div class="hand-value">${valText}</div>${seatSpotsHTML(pos, amt)}`;
     } else {
       // Split hands — show the active or last one
       let show = posHands.find(h => !h.done) || posHands[posHands.length - 1];
@@ -241,16 +377,15 @@ function renderHands() {
         }
         if (show.result) valText += ` ${show.result.toUpperCase()}`;
       }
-      box.innerHTML = `<div class="hand-title">Hand ${pos+1}${'ab'[sub]}</div>
+      box.innerHTML = `<div class="hand-title">Seat ${pos+1}${'ab'[sub]}</div>
         <div class="hand-cards">${cardsHTML}</div>
-        <div class="hand-value">${valText}</div>`;
+        <div class="hand-value">${valText}</div>${seatSpotsHTML(pos, amt)}`;
     }
     area.appendChild(box);
   }
 }
 
 function setButtonsEnabled(states) {
-  $('btn-bj-max').disabled = !states.deal;
   $('btn-deal').disabled = !states.deal;
   $('btn-hit').disabled = !states.hit;
   $('btn-stand').disabled = !states.stand;
@@ -260,7 +395,8 @@ function setButtonsEnabled(states) {
 
 function updateButtons() {
   if (!gameActive) {
-    setButtonsEnabled({deal: balance >= 5, hit:false, stand:false, double:false, split:false});
+    const t = seatTotal();
+    setButtonsEnabled({deal: t > 0, hit:false, stand:false, double:false, split:false});
     return;
   }
   const h = hands[activeHand];
@@ -285,8 +421,6 @@ function hideInsurance() {
 }
 
 function lockInputs(locked) {
-  $('bj-bet').disabled = locked;
-  $('bj-hands').disabled = locked;
   $('bj-show-double').disabled = locked;
 }
 
@@ -296,9 +430,10 @@ function launchGame(game) {
   if (game === 'blackjack') {
     showScreen('blackjack-screen');
     updateBalance();
-    updateTotalLabel();
     updateCountDisplay();
     newShoe();
+    renderHands();
+    updateTotalLabel();
   } else if (game === 'baccarat') {
     showScreen('baccarat-screen');
     initBaccarat();
@@ -317,6 +452,13 @@ function launchGame(game) {
   } else if (game === 'crash') {
     showScreen('crash-screen');
     initCrash();
+  } else if (game === 'achievements') {
+    showScreen('achievements-screen');
+    initAchievements();
+    window.scrollTo(0, 0);
+  } else if (game === 'dev') {
+    showScreen('dev-screen');
+    initDevOptions();
   }
 }
 function backToMenu() {
@@ -330,66 +472,48 @@ function checkAutoReset() {
   if (balance < 500) {
     balance = STARTING_BALANCE;
     updateBalance();
+    if (typeof achUnlock === 'function') achUnlock('rock_bottom');
   }
-}
-
-// ─── MAX BET ──────────────────────────────────────────────────────
-function bjMaxBet() {
-  if (gameActive) return;
-  const n = parseInt($('bj-hands').value) || DEFAULT_HANDS;
-  let bet;
-  if (betMode === 'total') {
-    // Input is the TOTAL bet in this mode
-    bet = Math.floor(balance / 5) * 5;
-    if (Math.floor(bet / n) < 5) return;
-  } else {
-    const maxPerHand = Math.floor(balance / n);
-    if (maxPerHand < 5) return;
-    bet = Math.floor(maxPerHand / 5) * 5;
-  }
-  $('bj-bet').value = bet;
-  updateTotalLabel();
 }
 
 // ─── DEAL ──────────────────────────────────────────────────────────
 function bjDeal() {
-  // Read hand count
-  let n = parseInt($('bj-hands').value) || DEFAULT_HANDS;
-  n = Math.max(1, Math.min(MAX_HANDS, n));
-  $('bj-hands').value = n;
-  numPositions = n;
-
-  // Read bet
-  const betInput = parseInt($('bj-bet').value) || DEFAULT_BET;
-  if (betMode === 'total') {
-    baseBet = Math.floor(betInput / numPositions);
-  } else {
-    baseBet = betInput;
+  if (gameActive) return;
+  const seats = [];
+  for (let pos = 0; pos < MAX_HANDS; pos++) if (seatBets[pos] > 0) seats.push(pos);
+  if (!seats.length) { setMsg('Tap a betting circle to place chips first', 'lose'); return; }
+  for (let pos = 0; pos < MAX_HANDS; pos++) {
+    if (!seatBets[pos] && (sideBets.pp[pos] || sideBets.t3[pos])) {
+      setMsg(`Seat ${pos + 1} has side bets but no main bet`, 'lose');
+      return;
+    }
   }
-  const totalNeeded = baseBet * numPositions;
-
-  if (baseBet < 5) { setMsg('Minimum $5 per hand!', 'lose'); return; }
+  const totalNeeded = seatTotal();
   if (totalNeeded > balance) {
-    setMsg(`Need $${totalNeeded.toLocaleString()} — only $${balance.toLocaleString()}!`, 'lose');
+    setMsg(`Need $${totalNeeded.toLocaleString()} — only $${balance.toLocaleString()}! Undo or clear some chips.`, 'lose');
     return;
   }
+  numPositions = seats.length;
 
   // Read options
   showDoubleCard = $('bj-show-double').checked;
-  betMode = document.querySelector('input[name="betmode"]:checked').value;
 
+  bjRoundStartBalance = balance;
   balance -= totalNeeded;
   updateBalance();
   insuranceTaken = false;
   insuranceCost = 0;
   holeCardCounted = false;
+  sideResults = {};
+  sideSummary = [];
+  roundSideTotal = sumArr(sideBets.pp) + sumArr(sideBets.t3);
 
   // Init empty hands
   dealerHand = [];
   hands = [];
-  for (let pos = 0; pos < numPositions; pos++) {
+  for (const pos of seats) {
     hands.push({
-      cards: [], bet: baseBet, done: false, result: null,
+      cards: [], bet: seatBets[pos], done: false, result: null,
       position: pos, fromSplit: false, doubleHidden: false,
     });
   }
@@ -399,6 +523,7 @@ function bjDeal() {
   // Clear display
   renderDealer();
   renderHands();
+  renderChipRack();
   setDetail('');
   setMsg('Dealing...');
   lockInputs(true);
@@ -407,7 +532,7 @@ function bjDeal() {
   // Build deal queue: 2 rounds (card to each player, then dealer)
   const queue = [];
   for (let round = 0; round < 2; round++) {
-    for (let pos = 0; pos < numPositions; pos++) queue.push({type:'player', pos});
+    for (let i = 0; i < hands.length; i++) queue.push({type:'player', pos: i});
     queue.push({type:'dealer'});
   }
   processDealQueue(queue);
@@ -428,7 +553,62 @@ function processDealQueue(queue) {
   setTimeout(() => processDealQueue(queue), DEAL_DELAY);
 }
 
+// ─── SIDE BETS ─────────────────────────────────────────────────────
+const RANK_ORDER = { A:1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, J:11, Q:12, K:13 };
+const isRed = s => s === 'H' || s === 'D';
+function evalPerfectPairs(c1, c2) {
+  if (c1.rank !== c2.rank) return null;
+  if (c1.suit === c2.suit) return { name: 'Perfect Pair', mult: PP_PAYS.perfect, key: 'perfect' };
+  if (isRed(c1.suit) === isRed(c2.suit)) return { name: 'Colored Pair', mult: PP_PAYS.colored, key: 'colored' };
+  return { name: 'Mixed Pair', mult: PP_PAYS.mixed, key: 'mixed' };
+}
+function evalTwentyOnePlus3(cards) {
+  const flush = cards.every(c => c.suit === cards[0].suit);
+  const ranks = cards.map(c => RANK_ORDER[c.rank]).sort((a, b) => a - b);
+  const trips = ranks[0] === ranks[2];
+  const run = r => r[1] === r[0] + 1 && r[2] === r[1] + 1;
+  const straight = !trips && (run(ranks) || (ranks[0] === 1 && ranks[1] === 12 && ranks[2] === 13)); // Q-K-A
+  if (trips && flush) return { name: 'Suited Trips', mult: T3_PAYS.suitedTrips, key: 'suitedTrips' };
+  if (straight && flush) return { name: 'Straight Flush', mult: T3_PAYS.straightFlush, key: 'straightFlush' };
+  if (trips) return { name: 'Three of a Kind', mult: T3_PAYS.trips, key: 'trips' };
+  if (straight) return { name: 'Straight', mult: T3_PAYS.straight, key: 'straight' };
+  if (flush) return { name: 'Flush', mult: T3_PAYS.flush, key: 'flush' };
+  return null;
+}
+function resolveSideBets() {
+  let paid = 0;
+  for (const h of hands) {
+    const pos = h.position;
+    const [c1, c2] = h.cards;
+    const checks = [['pp', () => evalPerfectPairs(c1, c2)], ['t3', () => evalTwentyOnePlus3([c1, c2, dealerHand[0]])]];
+    for (const [kind, evalFn] of checks) {
+      const amt = sideBets[kind][pos];
+      if (!amt) continue;
+      const hit = evalFn();
+      if (hit) {
+        const payout = amt * (hit.mult + 1);
+        balance += payout;
+        paid += payout - amt;
+        sideResults[`${pos}-${kind}`] = { win: true, label: `${hit.mult}:1`, payout };
+        sideSummary.push(`S${pos + 1} ${hit.name} +$${(payout - amt).toLocaleString()}`);
+        if (kind === 'pp' && hit.key === 'perfect') achUnlock('bj_perfect_pair');
+        if (kind === 't3') achUnlock('bj_213');
+        if (kind === 't3' && hit.key === 'suitedTrips') achUnlock('bj_suited_trips');
+      } else {
+        sideResults[`${pos}-${kind}`] = { win: false };
+      }
+    }
+  }
+  if (Object.keys(sideResults).length) {
+    updateBalance();
+    renderHands();
+    setDetail(sideSummary.length ? `Side bets: ${sideSummary.join('  |  ')}` : 'Side bets: no hits');
+    if (paid > 0) setMsg(`Side bets pay +$${paid.toLocaleString()}!`, 'win');
+  }
+}
+
 function postDeal() {
+  resolveSideBets();
   if (dealerHand[0].rank === 'A') {
     offerInsurance();
     return;
@@ -533,6 +713,7 @@ function bjDouble() {
   if (balance < h.bet) return;
   balance -= h.bet;
   h.bet *= 2;
+  h.doubled = true;
   updateBalance();
   h.cards.push(drawCard());
   if (!showDoubleCard) h.doubleHidden = true;
@@ -556,9 +737,9 @@ function bjSplit() {
   const [c1, c2] = h.cards;
   balance -= h.bet;
   updateBalance();
-  const h1 = { cards:[c1, drawCard()], bet:baseBet, done:false, result:null,
+  const h1 = { cards:[c1, drawCard()], bet:h.bet, done:false, result:null,
                 position:pos, fromSplit:true, doubleHidden:false };
-  const h2 = { cards:[c2, drawCard()], bet:baseBet, done:false, result:null,
+  const h2 = { cards:[c2, drawCard()], bet:h.bet, done:false, result:null,
                 position:pos, fromSplit:true, doubleHidden:false };
   hands.splice(activeHand, 1, h1, h2);
   if (handValue(h1.cards) === 21) h1.done = true;
@@ -683,12 +864,24 @@ function finalize() {
   renderHands();
   updateBalance();
 
+  // Achievements
+  const bjWager = hands.reduce((t, h) => t + h.bet, 0) + insuranceCost + roundSideTotal;
+  achRound('blackjack', { wager: bjWager, payout: bjWager + (balance - bjRoundStartBalance) });
+  const naturals = hands.filter(h => h.result === 'blackjack').length;
+  if (naturals >= 1) achUnlock('bj_natural');
+  if (naturals >= 3) achUnlock('bj_hattrick');
+  if (hands.some(h => h.fromSplit && h.result === 'win')) achUnlock('bj_split');
+  if (hands.some(h => h.doubled && h.result === 'win')) achUnlock('bj_double');
+  if (numPositions >= MAX_HANDS) achUnlock('bj_table');
+
+  totalWon += Object.values(sideResults).reduce((t, r) => t + (r.payout || 0), 0) - roundSideTotal;
   if (totalWon > 0) setMsg(`Net: +$${totalWon.toLocaleString()}`, 'win');
   else if (totalWon < 0) setMsg(`Net: -$${Math.abs(totalWon).toLocaleString()}`, 'lose');
   else setMsg('Break even');
 
-  setDetail(details.join('  |  '));
+  setDetail([...sideSummary, ...details].join('  |  '));
   lockInputs(false);
+  renderChipRack();
 
   if (balance < 5) {
     checkAutoReset();
@@ -705,23 +898,6 @@ document.addEventListener('DOMContentLoaded', () => {
   updateBalance();
   newShoe();
 
-  $('bj-bet').addEventListener('input', updateTotalLabel);
-  $('bj-hands').addEventListener('change', () => {
-    if (gameActive) {
-      $('bj-hands').value = numPositions;
-      return;
-    }
-    let n = parseInt($('bj-hands').value) || DEFAULT_HANDS;
-    n = Math.max(1, Math.min(MAX_HANDS, n));
-    $('bj-hands').value = n;
-    numPositions = n;
-    updateTotalLabel();
-  });
-
-  document.querySelectorAll('input[name="betmode"]').forEach(r => {
-    r.addEventListener('change', () => {
-      betMode = r.value;
-      updateTotalLabel();
-    });
-  });
+  renderHands();
+  updateTotalLabel();
 });

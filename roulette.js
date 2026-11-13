@@ -293,6 +293,8 @@ function roulResolve() {
 
   let totalWin = 0;
   const details = [];
+  const roulWager = roulBets.reduce((t, b) => t + b[2], 0);
+  let hitStraight = false;
 
   for (const [betType, value, amount] of roulBets) {
     let win = false;
@@ -327,6 +329,7 @@ function roulResolve() {
     }
 
     if (win) {
+      if (betType === 'straight') hitStraight = true;
       const payout = amount + amount * payoutMult;
       totalWin += payout;
       details.push(`${value.toUpperCase()} +$${(amount * payoutMult).toLocaleString()}`);
@@ -337,6 +340,10 @@ function roulResolve() {
 
   balance += totalWin;
   updateRoulBalance();
+  achRound('roulette', { wager: roulWager, payout: totalWin });
+  if (hitStraight) achUnlock('roul_straight');
+  if (isZero && totalWin > 0) achUnlock('roul_green');
+  if (roulBets.length >= 10) achUnlock('roul_spread');
   roulBets = [];
   updateRoulBetsDisplay();
 

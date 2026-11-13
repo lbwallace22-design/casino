@@ -1,4 +1,4 @@
-const CACHE_NAME = 'casino-v20';
+const CACHE_NAME = 'casino-v22';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './baccarat-cards.js',
   './baccarat.js',
   './blackjack.js',
+  './achievements.js',
   './slot-themes.js',
   './slots.js',
   './roulette.js',

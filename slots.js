@@ -460,6 +460,7 @@ function slotBuyHoldWin() {
   }
   balance -= cost;
   updateSlotBalance();
+  achRound('slots', { wager: cost, countRound: false });
 
   // Place trigger-count random coins on the grid
   const positions = [];
@@ -497,6 +498,7 @@ function slotBuyLadder() {
   }
   balance -= cost;
   updateSlotBalance();
+  achRound('slots', { wager: cost, countRound: false });
   startLadder(betPerLine);
 }
 
@@ -678,6 +680,7 @@ function resolveSlot(betPerLine) {
     if (mult > 0) {
       const payout = mult * betPerLine;
       totalWin += payout;
+      if (cnt >= 5) achUnlock('slot_five');
       details.push(`L${li+1}:${cnt}x${sym}+$${payout.toLocaleString()}`);
       for (let idx = 0; idx < cnt; idx++) {
         winningCells.add(`${line[idx][0]},${line[idx][1]}`);
@@ -734,6 +737,11 @@ function resolveSlot(betPerLine) {
   balance += totalWin;
   updateSlotBalance();
 
+  const spinBet = betPerLine * NUM_LINES;
+  achRound('slots', { wager: spinBet, payout: totalWin });
+  achSlotMachineSpun(slotTheme.id);
+  if (totalWin >= spinBet * 10) achUnlock('slot_spin10x');
+
   if (totalWin > 0) {
     slotStats.wins++;
     slotStats.totalWon += totalWin;
@@ -762,6 +770,7 @@ function resolveSlot(betPerLine) {
   }
 
   if (hw && bnsCount >= hw.trigger) {
+    achUnlock('slot_holdwin');
     for (const [r,c] of bnsCells) winningCells.add(`${r},${c}`);
     renderSlotGrid(winningCells);
     if (pendingLadder) window._pendingLadder = pendingLadder;
@@ -907,6 +916,8 @@ function endHoldWin() {
   const payout = totalMult * holdWinBet * NUM_LINES;
 
   balance += payout;
+  achRound('slots', { payout, countRound: false });
+  if (isFull) achUnlock('slot_grand');
   slotStats.wins++;
   slotStats.totalWon += payout;
   updateSlotBalance();
@@ -1094,8 +1105,10 @@ function endLadder() {
     payout = ld.levels[ladderLevel].mult * ladderBasePay;
   }
 
+  if (ladderLevel === ld.levels.length - 1) achUnlock('slot_ladder');
   if (payout > 0) {
     balance += payout;
+    achRound('slots', { payout, countRound: false });
     slotStats.wins++;
     slotStats.totalWon += payout;
     updateSlotBalance();

@@ -545,6 +545,92 @@
   .bac-rules summary { padding-left: 0; }
 }
 
+/* Desktop fit: whole table + DEAL visible on a laptop screen without scrolling. */
+@media (min-width: 681px) {
+  #baccarat-screen { padding-top: 10px; padding-bottom: 16px; }
+  .bac-header { padding-bottom: 10px; }
+  .bac-back { min-height: 38px; padding: 6px 14px; }
+  .bac-heading h1 { font-size: 1.6rem; margin-top: 0; }
+  .bac-wallet strong { line-height: 1.25; }
+  .bac-felt { min-height: 0; padding-top: 40px; padding-bottom: 20px; }
+  .bac-cards { min-height: 117.6px; }
+  .bac-card, .bac-empty-card { flex-basis: 84px; width: 84px; height: 117.6px; }
+  .bac-bet-spots { margin-top: 12px; }
+  .bac-status-panel { min-height: 62px; padding: 10px 12px 8px; }
+  .bac-console { padding-top: 12px; padding-bottom: 14px; }
+  .bac-deal { min-height: 60px; padding: 10px 22px; }
+}
+@media (min-width: 681px) and (max-height: 860px) {
+  .bac-heading small { display: none; }
+  .bac-heading h1 { font-size: 1.35rem; }
+  .bac-table { padding: 14px; }
+  .bac-felt { border-width: 10px; padding-top: 34px; padding-bottom: 14px; }
+  .bac-cards { min-height: 95.2px; }
+  .bac-card, .bac-empty-card { flex-basis: 68px; width: 68px; height: 95.2px; }
+  .bac-shoe { transform: scale(.8); }
+  .bac-spot { min-height: 0; }
+  .bac-status-panel { min-height: 52px; padding: 6px 12px; }
+  .bac-chip { flex-basis: 48px; width: 48px; height: 48px; }
+}
+
+/* Wide screens: console sits beside the table so nothing falls below the fold. */
+@media (min-width: 1100px) {
+  .bac-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: 22px;
+    max-width: 1280px;
+  }
+  .bac-header { grid-column: 1 / -1; }
+  .bac-table { grid-column: 1; grid-row: 2 / span 3; align-self: start; }
+  .bac-status-panel { grid-column: 2; grid-row: 2; min-height: 96px; }
+  .bac-console {
+    grid-column: 2; grid-row: 3;
+    grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 0;
+    padding: 16px;
+  }
+  .bac-chip-section { grid-column: 1 / -1; text-align: center; }
+  .bac-chip-rack { justify-content: center; gap: 12px; }
+  .bac-wager-section { min-width: 0; padding-left: 0; border-left: 0; }
+  .bac-deal { padding: 10px 12px; }
+  .bac-footer { grid-column: 2; grid-row: 4; flex-direction: column; padding: 16px 6px 0; gap: 12px; }
+  .bac-table-sign { left: 1%; width: 22%; }
+  .bac-rules { flex: none; text-align: left; }
+  .bac-rules summary { padding-left: 0; }
+}
+
+/* Phone fit: keep the whole table + DEAL on one screen without scrolling. */
+@media (max-width: 680px) {
+  #baccarat-screen { padding-top: 8px; padding-bottom: 16px; }
+  .bac-header { grid-template-columns: auto 1fr auto; gap: 8px; padding: 0 3px 8px; }
+  .bac-back { grid-column: 1; grid-row: 1; min-height: 36px; padding: 6px 10px; }
+  .bac-heading { grid-column: 2; grid-row: 1; }
+  .bac-heading small { display: none; }
+  .bac-heading h1 { font-size: 1.25rem; letter-spacing: .12em; margin: 0; }
+  .bac-wallet { grid-column: 3; grid-row: 1; }
+  .bac-wallet strong { font-size: 1.05rem; line-height: 1.2; }
+  .bac-wallet small { display: none; }
+  .bac-table { padding: 9px; }
+  .bac-felt { min-height: 0; padding: 36px 6px 16px; }
+  .bac-table-sign { display: none; }
+  .bac-hand > header { margin-bottom: 4px; }
+  .bac-cards { min-height: 89.6px; }
+  .bac-card, .bac-empty-card { flex-basis: 64px; width: 64px; height: 89.6px; }
+  .bac-center-rule { margin: 4px 0 3px; }
+  .bac-bet-spots { margin-top: 8px; }
+  .bac-spot { min-height: 58px; padding: 6px 4px 7px; }
+  .bac-status-panel { min-height: 60px; padding: 8px 8px 6px; }
+  .bac-status-panel p { margin-top: 2px; font-size: .72rem; line-height: 1.35; }
+  .bac-console { gap: 8px 12px; padding: 10px 14px 12px; }
+  .bac-chip-rack { gap: 16px; margin-top: 6px; padding-bottom: 6px; }
+  .bac-chip { flex-basis: 48px; width: 48px; height: 48px; padding: 5px; }
+  .bac-chip span { font-size: .62rem; }
+  .bac-wager-section > strong { font-size: 1.25rem; line-height: 1.2; }
+  .bac-adjustments button { min-height: 36px; }
+  .bac-deal { min-height: 58px; padding: 8px 9px; }
+}
+
 @media (max-width: 374px) {
   #baccarat-screen { padding-left: 6px; padding-right: 6px; }
   .bac-table { padding: 11px; }
