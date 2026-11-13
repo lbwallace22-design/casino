@@ -1,4 +1,4 @@
-const CACHE_NAME = 'casino-v22';
+const CACHE_NAME = 'casino-v23';
 const ASSETS = [
   './',
   './index.html',
