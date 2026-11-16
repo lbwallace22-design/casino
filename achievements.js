@@ -55,6 +55,14 @@ const ACHIEVEMENTS = [
   { id:'slot_machines', cat:'Slots', icon:'🎰', name:'Machine Hopper',   desc:'Spin every slot machine',
     progress: s => [(s.machines || []).length, (typeof SLOT_THEME_ORDER !== 'undefined' ? SLOT_THEME_ORDER.length : 5)] },
 
+  // Thunder Rush
+  { id:'blz_bonus',    cat:'Thunder Rush', icon:'⚡', name:'Rush Hour',      desc:'Trigger the Thunder Rush bonus' },
+  { id:'blz_gold',     cat:'Thunder Rush', icon:'🟡', name:'Gold Column',    desc:'Land a gold coin that fills a column' },
+  { id:'blz_full',     cat:'Thunder Rush', icon:'🔋', name:'Full Charge',    desc:'Lock 5 Orbs on one board' },
+  { id:'blz_double',   cat:'Thunder Rush', icon:'🪞', name:'Seeing Double',  desc:'Open a DOUBLE board in the bonus' },
+  { id:'blz_mult_max', cat:'Thunder Rush', icon:'🌩️', name:'Supercharged',   desc:'Stack MULTI coins to x10' },
+  { id:'blz_grand',    cat:'Thunder Rush', icon:'👑', name:'Thunder GRAND',  desc:'Collect the Grand jackpot in a Thunder Rush bonus' },
+
   // Roulette
   { id:'roul_straight', cat:'Roulette', icon:'🎯', name:'Straight Up',   desc:'Hit a single-number bet' },
   { id:'roul_green',    cat:'Roulette', icon:'🟢', name:'Going Green',   desc:'Win on 0 or 00' },

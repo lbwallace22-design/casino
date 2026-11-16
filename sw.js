@@ -1,4 +1,4 @@
-const CACHE_NAME = 'casino-v23';
+const CACHE_NAME = 'casino-v24';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,9 @@ const ASSETS = [
   './achievements.js',
   './slot-themes.js',
   './slots.js',
+  './blitz-engine.js',
+  './blitz.js',
+  './blitz.css',
   './roulette.js',
   './mines.js',
   './plinko.js',

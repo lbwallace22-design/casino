@@ -15,11 +15,13 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 | `baccarat-rules.js` / `baccarat-cards.js` | Pure baccarat rules and payouts; canvas card faces and curved peel renderer |
 | `slot-themes.js` | Theme configs for the 5 slot machines: symbols, weights, payouts, display colors, per-theme Hold & Win / Ladder configs |
 | `slots.js` | Theme-agnostic slot engine + lobby: 5×3 grid, 10 paylines, Hold & Win, Multiplier Ladder, buy features, autoplay, speed presets |
+| `blitz-engine.js` | Thunder Rush math (pure, no DOM): 3×5 collect slot, odds table, bonus engine. Shared by the page and `tests/blitz-sim.js` |
+| `blitz.js` / `blitz.css` | Thunder Rush screen: spin/collect animations, bonus with MULTI/DOUBLE coins, autoplay, speed, odds overlay |
 | `roulette.js` | Roulette: canvas wheel, ball physics animation, full bet board |
 | `mines.js` | Mines: 5×5 grid, 1–24 mines, multiplier grows per safe pick, cash out anytime |
 | `plinko.js` | Plinko: canvas peg board (12 rows), low/med/high risk tables, concurrent balls |
 | `crash.js` | Crash: canvas multiplier curve, cash out before crash, auto cash-out, history chips |
-| `achievements.js` | 36 achievements (defs, `achRound`/`achUnlock`/`achCount` hooks, toast, screen) + hidden Developer Options |
+| `achievements.js` | 45 achievements (defs, `achRound`/`achUnlock`/`achCount` hooks, toast, screen) + hidden Developer Options |
 | `sw.js` | Service worker for offline PWA caching (bump `CACHE_NAME` version on every change!) |
 | `manifest.json` | PWA manifest |
 | `icon-192.png` / `icon-512.png` | App icons |
@@ -44,6 +46,13 @@ Local path: `C:\Users\lbwal\OneDrive\Desktop\casino-web`
 - **Paytable**: generated per theme by `buildPaytableHTML()`; shown in a modal overlay (`#paytable-overlay`) opened by the 📊 ODDS button, not inline
 - **Animation**: Reels stop left-to-right with bounce/pop CSS. Big win (10x+) shakes machine.
 - **Coin size**: Hold & Win coins use 2.4rem emoji, 0.75rem value text
+
+## Thunder Rush Key Details
+- 6th lobby card (appended in `initSlotLobby()`), own screen `#blitz-screen`; launched by `launchThunderRush()`; stats keyed `thunder` in `casino-slot-stats`
+- 3 columns × 5 rows, no paylines. Prize coins on columns 1 and 3, Orbs in the middle; each Orb collects every coin in view
+- Gold coin fills its whole prize column with 5 copies. Surge randomly guarantees the bonus
+- Bonus: Orb + a prize on both sides. Orbs lock, 3 respins reset on any landing, every locked Orb collects every new coin. MULTI coins add up (cap x10, cash coins only); DOUBLE opens a second board with the Orbs copied (landings damped per board so it still ends). Wins credit per respin
+- Tuning lives in `BLZ_ODDS` / prize tables in `blitz-engine.js`. Re-check with `node tests/blitz-sim.js 3000000 300000` after any change (target ≈ 93–95% RTP, buy ≈ 95%)
 
 ## Roulette Key Details
 - Canvas-drawn wheel with ball animation
