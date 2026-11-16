@@ -177,6 +177,26 @@ function initSlotLobby() {
       </span>`;
     wrap.appendChild(card);
   }
+  // Thunder Rush: 3×5 collect machine with its own screen (blitz.js)
+  if (typeof launchThunderRush === 'function') {
+    const st = slotStatsFor('thunder');
+    const card = document.createElement('button');
+    card.className = 'slot-machine-card';
+    card.style.setProperty('--mb-accent', '#38bdf8');
+    card.onclick = () => launchThunderRush();
+    card.innerHTML = `
+      <span class="smc-thumb">⚡</span>
+      <span class="smc-info">
+        <span class="smc-name">THUNDER RUSH<span class="smc-new">NEW</span></span>
+        <span class="smc-tagline">3×5 · no paylines · Orbs collect every coin</span>
+        <span class="smc-meta">
+          <span class="smc-risk">RISK ${[1,2,3,4].map(() => '<span class="vol-dot on"></span>').join('')}</span>
+          <span class="smc-feats">⚡ Thunder Rush · MULTI · DOUBLE</span>
+        </span>
+        <span class="smc-stats">Spins: ${st.spins.toLocaleString()} · Won: $${st.totalWon.toLocaleString()}</span>
+      </span>`;
+    wrap.appendChild(card);
+  }
 }
 
 function launchSlotMachine(id) {

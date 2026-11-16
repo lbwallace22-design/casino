@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="baccarat.css">
+<link rel="stylesheet" href="blitz.css">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -28,7 +29,7 @@
     <button class="menu-btn purple" onclick="launchGame('mines')">MINES</button>
     <button class="menu-btn teal" onclick="launchGame('plinko')">PLINKO</button>
     <button class="menu-btn green" onclick="launchGame('crash')">CRASH</button>
-    <button class="menu-btn gold-accent" onclick="launchGame('achievements')">🏆 ACHIEVEMENTS <span class="menu-badge" id="menu-ach-count">0/39</span></button>
+    <button class="menu-btn gold-accent" onclick="launchGame('achievements')">🏆 ACHIEVEMENTS <span class="menu-badge" id="menu-ach-count">0/45</span></button>
     <button class="menu-btn dev-accent hidden" id="menu-dev-btn" onclick="launchGame('dev')">🛠️ DEVELOPER OPTIONS</button>
   </div>
   <div class="deposit-row">
@@ -151,6 +152,46 @@
   <div class="slot-lobby-cards" id="slot-lobby-cards"></div>
   <div class="btn-row">
     <button class="btn dark" onclick="backToMenu()">MENU</button>
+  </div>
+</div>
+
+<!-- ═══ THUNDER RUSH (3×5 collect slot) ═══ -->
+<div id="blitz-screen" class="screen">
+  <div class="blz-top">
+    <button class="btn dark sm" id="blz-back" onclick="blzBackToLobby()">← LOBBY</button>
+    <div class="blz-title">⚡ THUNDER RUSH</div>
+    <button class="btn dark sm" onclick="blzToggleOdds(true)">📊 ODDS</button>
+  </div>
+  <div class="balance-display" id="blz-balance">Balance: $5,000</div>
+  <div class="blz-jackpots" id="blz-jackpots"></div>
+  <div class="blz-machine" id="blz-machine">
+    <div class="blz-bonus-bar hidden" id="blz-bonus-bar"></div>
+    <div class="blz-boards" id="blz-boards"></div>
+    <div class="blz-banner" id="blz-banner"></div>
+  </div>
+  <div class="msg" id="blz-msg">Spin it!</div>
+  <div class="detail" id="blz-detail"></div>
+  <div class="blz-controls">
+    <div class="blz-bet-box">
+      <button class="blz-bet-btn" id="blz-bet-down" onclick="blzChangeBet(-1)" aria-label="Lower bet">−</button>
+      <div class="blz-bet-val"><small>BET</small><span id="blz-bet">$10</span></div>
+      <button class="blz-bet-btn" id="blz-bet-up" onclick="blzChangeBet(1)" aria-label="Raise bet">+</button>
+    </div>
+    <button class="btn blz-spin" id="blz-spin" onclick="blzSpinClick()">SPIN</button>
+    <button class="btn blz-buy" id="blz-buy" onclick="blzBuyBonus()">BUY BONUS</button>
+  </div>
+  <div class="blz-subcontrols">
+    <button class="bj-text-btn" id="blz-auto" onclick="blzToggleAuto()">🔁 AUTO</button>
+    <button class="bj-text-btn" id="blz-speed" onclick="blzCycleSpeed()">⏩ NORMAL</button>
+  </div>
+  <div class="stats-row" id="blz-stats">Spins: 0  |  Wins: 0  |  Won: $0</div>
+
+  <div class="hidden" id="blz-odds-overlay" onclick="blzToggleOdds(false)">
+    <div class="paytable-container" onclick="event.stopPropagation()">
+      <div class="paytable-title">⚡ THUNDER RUSH — HOW IT PAYS</div>
+      <div class="blz-odds" id="blz-odds"></div>
+      <button class="btn dark" onclick="blzToggleOdds(false)">CLOSE</button>
+    </div>
   </div>
 </div>
 
@@ -428,6 +469,8 @@
 <script src="baccarat.js"></script>
 <script src="slot-themes.js"></script>
 <script src="slots.js"></script>
+<script src="blitz-engine.js"></script>
+<script src="blitz.js"></script>
 <script src="roulette.js"></script>
 <script src="mines.js"></script>
 <script src="plinko.js"></script>
